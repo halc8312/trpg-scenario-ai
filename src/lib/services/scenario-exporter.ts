@@ -16,6 +16,23 @@ export const SCENE_TYPE_LABELS: Record<SceneType, string> = {
  * 前半がPL向け（公開情報）、後半がGM向け（ネタバレ）になるよう構成する。
  */
 export class ScenarioExporter {
+  static toPlayerMarkdown(scenario: TRPGScenario): string {
+    const overview = scenario.overview
+    const system = getGameSystem(scenario.request.systemId)
+    const lines = [
+      `# ${overview?.title || scenario.request.workingTitle || 'シナリオ'}`,
+      overview?.tagline || '',
+      `システム: ${system.name}`,
+      `人数: ${overview?.recommendedPlayers || `${scenario.request.playerCount}人`}`,
+      `時間: ${overview?.estimatedPlayTime || `${scenario.request.sessionHours}時間`}`,
+      '## あらすじ', overview?.playerSynopsis || '',
+      '## 導入', overview?.hook || ''
+    ]
+    if (overview?.recommendedSkills.length) lines.push('## 推奨技能', overview.recommendedSkills.join('、'))
+    // 公開用の明示的な許可リスト。GM本文の文字列分割では秘密を除去しない。
+    return lines.join('\n\n') + '\n'
+  }
+
   static toMarkdown(scenario: TRPGScenario): string {
     const system = getGameSystem(scenario.request.systemId)
     const gm = system.gmTitle

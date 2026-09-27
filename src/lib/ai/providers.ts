@@ -67,5 +67,5 @@ export const AI_PROVIDERS: Record<AIProviderId, AIProviderInfo> = {
 export const AI_PROVIDER_IDS = Object.keys(AI_PROVIDERS) as AIProviderId[]
 
 export function isAIProviderId(value: unknown): value is AIProviderId {
-  return typeof value === 'string' && value in AI_PROVIDERS
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(AI_PROVIDERS, value)
 }

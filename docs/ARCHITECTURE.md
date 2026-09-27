@@ -59,3 +59,10 @@ design-concept → create-npcs → design-locations-clues → structure-scenes
 ## ゲームシステムを追加するには
 
 `src/lib/types.ts` の `TRPGSystemId` にIDを追加し、`src/data/game-systems.ts` の `GAME_SYSTEMS` にプリセット（判定の書式、よく使う技能、NPC・敵のデータ形式、報酬の目安）を追加します。プロンプトはプリセットから自動で組み立てられます。
+
+
+## 再生成と保存境界
+
+部分再生成は `concept → npcs → locationsAndClues → scenes → endings` の依存順に後続項目まで作り直し、手がかり補強・最終検証を行ってからパッチを返します。途中で失敗した場合は元のシナリオを更新しません。手編集・再生成・履歴復元は `updateWithHistory` で直前の状態を保存します。
+
+`scenario-import-validator.ts` は外部JSONの実行時検証を担当します。AI出力の正規化とは分離し、不正な入力を空配列等へ黙って変換しません。外部JSONの検証スコアと履歴は取り込まず、検証を計算し直します。

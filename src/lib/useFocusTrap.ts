@@ -4,7 +4,7 @@ import { useEffect, RefObject } from 'react'
  * Custom hook that implements focus trap functionality for modals and dialogs
  * Keeps focus within the specified element when tabbing
  */
-export function useFocusTrap(ref: RefObject<HTMLElement>, isActive: boolean = true) {
+export function useFocusTrap(ref: RefObject<HTMLElement | null>, isActive: boolean = true) {
   useEffect(() => {
     if (!isActive) return
 

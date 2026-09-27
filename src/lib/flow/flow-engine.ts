@@ -132,14 +132,13 @@ export class FlowEngine {
 
       this.emit('stepComplete', step)
 
-      for (const nextStepId of step.nextSteps) {
-        await this.executeStep(nextStepId)
-      }
     } catch (error: any) {
       console.error(`Error executing step ${stepId}:`, error)
       this.emit('stepError', step, error)
       throw new Error(`Flow execution failed at step ${stepId}: ${error}`)
     }
+    // 後続ステップの失敗を完了済みのステップへ重複通知しない。
+    for (const nextStepId of step.nextSteps) await this.executeStep(nextStepId)
   }
 
   private evaluateConditions(conditions: FlowCondition[]): boolean {

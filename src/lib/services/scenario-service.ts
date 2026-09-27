@@ -1,6 +1,8 @@
 import { generateId } from '@/lib/utils'
 import { AI_PROVIDERS } from '@/lib/ai/providers'
 import { ScenarioAISettings, ScenarioRequest, TRPGScenario } from '@/lib/types'
+import { validateScenarioImport } from './scenario-import-validator'
+import { ScenarioValidator } from './scenario-validator'
 
 export const DEFAULT_SCENARIO_AI_SETTINGS: ScenarioAISettings = {
   provider: 'anthropic',
@@ -74,6 +76,29 @@ export class TRPGScenarioService {
 
   static delete(id: string): void {
     this.saveAll(this.getAll().filter(s => s.id !== id))
+    localStorage.removeItem(`trpg-gm-chat-${id}`)
+  }
+
+  static updateWithHistory(id: string, updates: Partial<TRPGScenario>, label: string): TRPGScenario | null {
+    const current = this.get(id)
+    if (!current) return null
+    const { history = [], ...data } = current
+    return this.update(id, {
+      ...updates,
+      history: [{ id: generateId(), label, savedAt: new Date(), data }, ...history].slice(0, 5)
+    })
+  }
+
+  static restore(id: string, revisionId: string): TRPGScenario | null {
+    const current = this.get(id)
+    const revision = current?.history?.find(item => item.id === revisionId)
+    if (!revision) throw new Error('復元する履歴が見つかりません')
+    const data = reviveDates(revision.data)
+    const validation = ScenarioValidator.validate(data)
+    return this.updateWithHistory(id, {
+      ...data, validation, lastError: undefined,
+      status: data.overview ? (validation.issues.some(issue => issue.severity !== 'info') ? 'review' : 'complete') : 'draft'
+    }, '復元前')
   }
 
   static duplicate(id: string): TRPGScenario | null {
@@ -95,6 +120,7 @@ export class TRPGScenarioService {
   }
 
   static import(data: unknown): TRPGScenario {
+    validateScenarioImport(data)
     const raw = data as Partial<TRPGScenario>
     if (!raw || typeof raw !== 'object' || !raw.request) {
       throw new Error('シナリオファイルの形式が正しくありません')
@@ -103,12 +129,15 @@ export class TRPGScenarioService {
     const now = new Date()
     const scenario: TRPGScenario = {
       ...reviveDates({
-        npcs: [],
-        locations: [],
-        clues: [],
-        scenes: [],
-        endings: [],
-        ...raw,
+        request: raw.request,
+        overview: raw.overview,
+        truth: raw.truth,
+        npcs: raw.npcs ?? [],
+        locations: raw.locations ?? [],
+        clues: raw.clues ?? [],
+        scenes: raw.scenes ?? [],
+        endings: raw.endings ?? [],
+        gmGuide: raw.gmGuide,
         aiSettings: { ...DEFAULT_SCENARIO_AI_SETTINGS, ...raw.aiSettings }
       }),
       id: generateId(),
@@ -117,12 +146,21 @@ export class TRPGScenarioService {
       updatedAt: now
     }
 
+    if (scenario.overview) {
+      scenario.validation = ScenarioValidator.validate(scenario)
+      scenario.status = scenario.validation.issues.some(issue => issue.severity !== 'info') ? 'review' : 'complete'
+    }
+
     this.saveAll([scenario, ...this.getAll()])
     return scenario
   }
 
   private static saveAll(scenarios: TRPGScenario[]): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(scenarios))
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(scenarios))
+    } catch {
+      throw new Error('保存できませんでした。ブラウザの保存容量や設定を確認し、JSON出力でバックアップしてください。')
+    }
   }
 }
 
@@ -131,6 +169,7 @@ function reviveDates(s: any): TRPGScenario {
     ...s,
     createdAt: new Date(s.createdAt ?? Date.now()),
     updatedAt: new Date(s.updatedAt ?? Date.now()),
+    history: Array.isArray(s.history) ? s.history.map((revision: any) => ({ ...revision, savedAt: new Date(revision.savedAt) })) : [],
     validation: s.validation
       ? { ...s.validation, checkedAt: new Date(s.validation.checkedAt ?? Date.now()) }
       : undefined

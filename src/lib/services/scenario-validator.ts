@@ -17,6 +17,20 @@ export type ValidatableScenario = Pick<
  * - エンディングの有無、セッション時間とのバランス
  */
 export class ScenarioValidator {
+  static getReachableSceneIds(scenario: ValidatableScenario): Set<string> {
+    const byId = new Map(scenario.scenes.map(scene => [scene.id, scene]))
+    const start = scenario.scenes.find(scene => scene.type === 'intro') ?? scenario.scenes[0]
+    const reachable = new Set<string>()
+    const queue = start ? [start.id] : []
+    for (let index = 0; index < queue.length; index++) {
+      const id = queue[index]
+      if (reachable.has(id) || !byId.has(id)) continue
+      reachable.add(id)
+      queue.push(...byId.get(id)!.nextSceneIds)
+    }
+    return reachable
+  }
+
   static validate(scenario: ValidatableScenario): ScenarioValidationReport {
     const issues: ScenarioIssue[] = []
 
@@ -38,11 +52,12 @@ export class ScenarioValidator {
   /**
    * PLが実際に手にできる手がかりのID。
    * シーンに配置されている、またはシーンの場所・NPCに紐づいている手がかりを数える。
-   * シーンが未作成の段階ではすべての手がかりを対象にする。
+   * 導入から到達できないシーンの手がかりは対象外にする。
    */
   static getAccessibleClueIds(scenario: ValidatableScenario): Set<string> {
-    const { clues, scenes } = scenario
-    if (scenes.length === 0) return new Set(clues.map(c => c.id))
+    const { clues } = scenario
+    const reachable = this.getReachableSceneIds(scenario)
+    const scenes = scenario.scenes.filter(scene => reachable.has(scene.id))
 
     const sceneClueIds = new Set(scenes.flatMap(s => s.clueIds))
     const sceneLocationIds = new Set(scenes.map(s => s.locationId).filter(Boolean) as string[])
@@ -63,6 +78,10 @@ export class ScenarioValidator {
     const revelations = scenario.truth?.keyRevelations ?? []
     const accessible = this.getAccessibleClueIds(scenario)
     const needingClues: string[] = []
+
+    if (!revelations.some(revelation => revelation.importance === 'critical')) {
+      issues.push({ severity: 'error', category: 'clue-coverage', message: 'シナリオの核心となる重要情報が設定されていません。' })
+    }
 
     for (const revelation of revelations) {
       const related = scenario.clues.filter(c => c.revelationId === revelation.id)
@@ -96,7 +115,7 @@ export class ScenarioValidator {
             severity: 'warning',
             category: 'clue-coverage',
             targetId: clue.id,
-            message: `手がかり「${clue.title}」はどのシーンにも配置されていないため、PLが入手できません。`
+            message: `手がかり「${clue.title}」は導入から到達できるシーンに配置されていないため、PLが入手できません。`
           })
         }
       }
@@ -111,6 +130,16 @@ export class ScenarioValidator {
     const locationIds = new Set(scenario.locations.map(l => l.id))
     const clueIds = new Set(scenario.clues.map(c => c.id))
     const sceneIds = new Set(scenario.scenes.map(s => s.id))
+
+    for (const items of [scenario.truth?.keyRevelations ?? [], scenario.npcs, scenario.locations, scenario.clues, scenario.scenes, scenario.endings]) {
+      const seen = new Set<string>()
+      for (const item of items) {
+        if (!item.id || seen.has(item.id)) {
+          issues.push({ severity: 'error', category: 'reference', targetId: item.id, message: `ID「${item.id}」が空または重複しています。` })
+        }
+        seen.add(item.id)
+      }
+    }
 
     const report = (targetId: string, message: string) =>
       issues.push({ severity: 'warning', category: 'reference', targetId, message })
@@ -151,17 +180,19 @@ export class ScenarioValidator {
     }
 
     const byId = new Map(scenes.map(s => [s.id, s]))
-    const start = scenes.find(s => s.type === 'intro') ?? scenes[0]
-
-    const reachable = new Set<string>()
-    const queue = [start.id]
-    while (queue.length > 0) {
-      const id = queue.shift()!
-      if (reachable.has(id)) continue
-      reachable.add(id)
-      for (const next of byId.get(id)?.nextSceneIds ?? []) {
-        if (byId.has(next) && !reachable.has(next)) queue.push(next)
-      }
+    const reachable = this.getReachableSceneIds(scenario)
+    // 結末から逆向きに辿り、脱出できない循環も検出する。
+    const predecessors = new Map<string, string[]>()
+    for (const scene of scenes) for (const next of scene.nextSceneIds) {
+      predecessors.set(next, [...(predecessors.get(next) ?? []), scene.id])
+    }
+    const canFinish = new Set<string>()
+    const queue = scenes.filter(scene => scene.type === 'ending' || scene.type === 'climax').map(scene => scene.id)
+    for (let index = 0; index < queue.length; index++) {
+      const id = queue[index]
+      if (canFinish.has(id)) continue
+      canFinish.add(id)
+      queue.push(...(predecessors.get(id) ?? []))
     }
 
     for (const scene of scenes) {
@@ -175,6 +206,12 @@ export class ScenarioValidator {
       }
 
       const isTerminal = scene.type === 'ending' || scene.type === 'climax'
+      if (reachable.has(scene.id) && !canFinish.has(scene.id)) {
+        issues.push({
+          severity: 'error', category: 'scene-flow', targetId: scene.id,
+          message: `シーン「${scene.title}」からクライマックス・結末へ到達できません。循環や遷移先を見直してください。`
+        })
+      }
       if (!isTerminal && scene.nextSceneIds.filter(id => byId.has(id)).length === 0) {
         issues.push({
           severity: 'warning',
