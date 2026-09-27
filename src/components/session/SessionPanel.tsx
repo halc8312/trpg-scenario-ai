@@ -333,7 +333,7 @@ function ClueCheckbox({ clue, session, update }: { clue: TRPGScenario['clues'][n
           })
         }
       />
-      <span className={cn(found && 'text-gray-400 line-through')}>
+      <span className={cn(found && 'text-gray-500 line-through')}>
         {clue.title}
         <span className="ml-1 text-xs text-gray-500">{[clue.discovery.skill, clue.discovery.difficulty].filter(Boolean).join(' ')}</span>
       </span>
@@ -366,7 +366,7 @@ function ClueTracker({ scenario, session, update }: PartProps) {
                 <span
                   className={cn(
                     'mt-0.5 shrink-0 rounded px-1.5 text-xs',
-                    found > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-200' : 'bg-gray-100 text-gray-500 dark:bg-gray-700'
+                    found > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-200' : 'bg-gray-100 text-gray-700 dark:bg-gray-700'
                   )}
                 >
                   {found > 0 ? '判明' : '未判明'}
@@ -404,7 +404,7 @@ function CountdownTracker({ scenario, session, update }: PartProps) {
                     update({ countdownDone: e.target.checked ? [...session.countdownDone, i] : session.countdownDone.filter(n => n !== i) })
                   }
                 />
-                <span className={cn(done && 'text-gray-400 line-through')}>
+                <span className={cn(done && 'text-gray-500 line-through')}>
                   <span className="font-medium">{event.time}</span> {event.event}
                 </span>
               </label>

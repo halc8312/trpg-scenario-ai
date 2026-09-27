@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -53,6 +53,7 @@ export default function CreateScenarioModal({ isOpen, onClose, onCreate }: Creat
   const [aiSettings, setAISettings] = useState<ScenarioAISettings>(defaultAISettings)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const { providers } = useAIProviders()
+  const fieldId = useId()
 
   // 開くたびに「AI設定」で保存した既定値を反映する
   useEffect(() => {
@@ -110,8 +111,9 @@ export default function CreateScenarioModal({ isOpen, onClose, onCreate }: Creat
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className={labelClass}>ゲームシステム</label>
+            <label htmlFor={`${fieldId}-system`} className={labelClass}>ゲームシステム</label>
             <Select
+              id={`${fieldId}-system`}
               value={request.systemId}
               onChange={e => handleSystemChange(e.target.value as TRPGSystemId)}
               options={GAME_SYSTEM_LIST.map(s => ({ value: s.id, label: s.name }))}
@@ -132,8 +134,9 @@ export default function CreateScenarioModal({ isOpen, onClose, onCreate }: Creat
         </div>
 
         <div>
-          <label className={labelClass}>アイデア・あらすじ</label>
+          <label htmlFor={`${fieldId}-premise`} className={labelClass}>アイデア・あらすじ</label>
           <textarea
+            id={`${fieldId}-premise`}
             className={textareaClass}
             rows={4}
             value={request.premise}
@@ -161,8 +164,9 @@ export default function CreateScenarioModal({ isOpen, onClose, onCreate }: Creat
             onChange={e => set('sessionHours', Number(e.target.value) || 1)}
           />
           <div>
-            <label className={labelClass}>難易度</label>
+            <label htmlFor={`${fieldId}-difficulty`} className={labelClass}>難易度</label>
             <Select
+              id={`${fieldId}-difficulty`}
               value={request.difficulty}
               onChange={e => set('difficulty', e.target.value as ScenarioDifficulty)}
               options={Object.entries(DIFFICULTY_LABELS).map(([value, label]) => ({ value, label }))}
@@ -230,8 +234,9 @@ export default function CreateScenarioModal({ isOpen, onClose, onCreate }: Creat
               />
             </div>
             <div>
-              <label className={labelClass}>必ず含めたい要素</label>
+              <label htmlFor={`${fieldId}-must`} className={labelClass}>必ず含めたい要素</label>
               <textarea
+                id={`${fieldId}-must`}
                 className={textareaClass}
                 rows={2}
                 value={request.mustInclude}
@@ -240,8 +245,9 @@ export default function CreateScenarioModal({ isOpen, onClose, onCreate }: Creat
               />
             </div>
             <div>
-              <label className={labelClass}>避けたい要素（NG・センシティブな題材）</label>
+              <label htmlFor={`${fieldId}-avoid`} className={labelClass}>避けたい要素（NG・センシティブな題材）</label>
               <textarea
+                id={`${fieldId}-avoid`}
                 className={textareaClass}
                 rows={2}
                 value={request.avoid}
@@ -262,8 +268,9 @@ export default function CreateScenarioModal({ isOpen, onClose, onCreate }: Creat
                 <p className="mt-1 text-xs text-gray-500">応答が途中で切れる場合は増やしてください（モデルの上限を超えるとエラーになります）。</p>
               </div>
               <div>
-                <label className={labelClass}>創造性（temperature: {aiSettings.temperature.toFixed(1)}）</label>
+                <label htmlFor={`${fieldId}-temperature`} className={labelClass}>創造性（temperature: {aiSettings.temperature.toFixed(1)}）</label>
                 <input
+                  id={`${fieldId}-temperature`}
                   type="range"
                   min={0.2}
                   max={1.2}

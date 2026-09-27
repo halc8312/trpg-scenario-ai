@@ -85,7 +85,7 @@ export default function UsageAndPricing({ isOpen, registerSave }: { isOpen: bool
               <tr key={model}>
                 <td className="py-1 pr-2 font-mono text-xs break-all">
                   {model}
-                  {!prices[model] && <span className="ml-1 text-amber-600">（未設定）</span>}
+                  {!prices[model] && <span className="ml-1 text-amber-700">（未設定）</span>}
                 </td>
                 <td className="py-1 pr-2">
                   <input

@@ -40,7 +40,7 @@ function Labeled({ label, hint, children }: { label: string; hint?: string; chil
     <label className="block">
       <span className={labelClass}>
         {label}
-        {hint && <span className="ml-2 font-normal text-gray-400">{hint}</span>}
+        {hint && <span className="ml-2 font-normal text-gray-500">{hint}</span>}
       </span>
       {children}
     </label>
@@ -116,7 +116,7 @@ function FieldEditor({ field, value, refs, onChange }: { field: FieldDef; value:
         <fieldset>
           <legend className={labelClass}>{field.label}</legend>
           {options.length === 0 ? (
-            <p className="text-xs text-gray-400">選べる項目がありません</p>
+            <p className="text-xs text-gray-500">選べる項目がありません</p>
           ) : (
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               {options.map(o => (
@@ -242,7 +242,7 @@ function ItemCard({ title, initiallyOpen, compact, canMoveUp, canMoveDown, onMov
           onClick={() => setOpen(o => !o)}
           aria-expanded={open}
         >
-          <span className="text-xs text-gray-400">{open ? '▼' : '▶'}</span>
+          <span className="text-xs text-gray-500">{open ? '▼' : '▶'}</span>
           <span className="truncate">{title}</span>
         </button>
         <button type="button" className={smallButton} disabled={!canMoveUp} onClick={() => onMove(-1)} aria-label="上へ移動">

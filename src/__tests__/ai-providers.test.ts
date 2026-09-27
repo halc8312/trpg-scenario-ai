@@ -221,3 +221,32 @@ describe('registry', () => {
     expect(() => getAdapter('anthropic')).toThrow('ANTHROPIC_API_KEY')
   })
 })
+
+describe('registry adapters', () => {
+  const env = process.env
+  afterEach(() => {
+    process.env = env
+  })
+
+  it.each([
+    ['openai', 'OPENAI_API_KEY', undefined],
+    ['gemini', 'GEMINI_API_KEY', 'https://generativelanguage.googleapis.com/v1beta/openai/'],
+    ['deepseek', 'DEEPSEEK_API_KEY', 'https://api.deepseek.com']
+  ] as const)('creates the %s adapter with its base URL', (provider, key, baseURL) => {
+    process.env = { ...env, [key]: `key-${provider}` }
+    jest.isolateModules(() => {
+      const { getAdapter } = require('@/lib/ai/server/registry')
+      const adapter = getAdapter(provider)
+      expect(getAdapter(provider)).toBe(adapter)
+    })
+    expect(OpenAI).toHaveBeenLastCalledWith({ apiKey: `key-${provider}`, baseURL })
+  })
+
+  it('creates the Claude adapter', () => {
+    process.env = { ...env, ANTHROPIC_API_KEY: 'k' }
+    jest.isolateModules(() => {
+      const { getAdapter } = require('@/lib/ai/server/registry')
+      expect(getAdapter('anthropic')).toBeInstanceOf(require('@/lib/ai/server/anthropic').AnthropicAdapter)
+    })
+  })
+})

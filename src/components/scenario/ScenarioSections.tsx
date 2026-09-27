@@ -322,7 +322,7 @@ export function ScenesSection({ scenario }: SectionProps) {
           key={scene.id}
           title={
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-gray-400">#{i + 1}</span>
+              <span className="text-gray-500">#{i + 1}</span>
               <span>{scene.title}</span>
               <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
                 {SCENE_TYPE_LABELS[scene.type]}
@@ -522,7 +522,7 @@ export function ValidationSection(props: ValidationSectionProps) {
   const report = scenario.validation
   if (!report) return <Empty>検証はまだ実行されていません。</Empty>
 
-  const scoreColor = report.score >= 80 ? 'text-green-600' : report.score >= 50 ? 'text-amber-600' : 'text-red-600'
+  const scoreColor = report.score >= 80 ? 'text-green-700' : report.score >= 50 ? 'text-amber-700' : 'text-red-600'
 
   return (
     <div className="space-y-4">
@@ -544,7 +544,7 @@ export function ValidationSection(props: ValidationSectionProps) {
           </p>
           <button
             type="button"
-            className="shrink-0 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+            className="shrink-0 rounded-md bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-50"
             onClick={onReinforce}
             disabled={disabled}
           >

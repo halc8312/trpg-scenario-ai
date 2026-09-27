@@ -49,7 +49,7 @@ export default function ScenarioCard({ scenario, onDelete, onDuplicate }: Scenar
       </Link>
 
       <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
-        <span className="text-xs text-gray-400">{formatDate(scenario.updatedAt)}</span>
+        <span className="text-xs text-gray-500">{formatDate(scenario.updatedAt)}</span>
         <div className="flex gap-3 text-sm">
           <button className="text-gray-600 dark:text-gray-300 hover:underline" onClick={() => onDuplicate(scenario.id)}>
             複製

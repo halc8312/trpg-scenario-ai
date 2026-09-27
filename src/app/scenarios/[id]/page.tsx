@@ -321,7 +321,7 @@ export default function TRPGScenarioPage({
                 {scenario.request.genre} / {scenario.request.playerCount}人 / {scenario.request.sessionHours}時間 /{' '}
                 {DIFFICULTY_LABELS[scenario.request.difficulty]}
               </span>
-              <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300">
+              <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
                 {AI_PROVIDERS[scenario.aiSettings.provider]?.name ?? scenario.aiSettings.provider} / {scenario.aiSettings.model}
               </span>
             </div>
@@ -421,7 +421,7 @@ export default function TRPGScenarioPage({
                   >
                     {tab.label}
                     {tab.id === 'validation' && scenario.validation && (
-                      <span className="ml-1 text-xs text-gray-400">{scenario.validation.score}</span>
+                      <span className="ml-1 text-xs text-gray-500">{scenario.validation.score}</span>
                     )}
                   </button>
                 ))}

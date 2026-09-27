@@ -52,7 +52,7 @@ export default function AISettingsModal({ isOpen, onClose }: AISettingsModalProp
                     'text-xs px-2 py-0.5 rounded',
                     p.configured
                       ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-200'
-                      : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300'
+                      : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
                   )}
                 >
                   {p.configured ? '利用可能' : '未設定'}
@@ -69,7 +69,7 @@ export default function AISettingsModal({ isOpen, onClose }: AISettingsModalProp
                 href={AI_PROVIDERS[p.id].consoleUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mr-2 text-blue-600 dark:text-blue-400 hover:underline"
+                className="mr-2 text-blue-600 dark:text-blue-400 underline"
               >
                 {p.name}のキーを取得
               </a>
@@ -86,10 +86,11 @@ export default function AISettingsModal({ isOpen, onClose }: AISettingsModalProp
             onChange={(provider, model) => setSettings(prev => ({ ...prev, provider, model }))}
           />
           <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="default-temperature" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               創造性（temperature: {settings.temperature.toFixed(1)}）
             </label>
             <input
+              id="default-temperature"
               type="range"
               min={0.2}
               max={1.2}

@@ -47,7 +47,7 @@ export default function GenerationProgress({ flow, stepStatuses, logs, streamTex
             <li
               key={step.id}
               className={cn('text-sm flex items-center gap-2', {
-                'text-gray-400': status === 'pending' || status === 'skipped',
+                'text-gray-500': status === 'pending' || status === 'skipped',
                 'text-blue-600 dark:text-blue-400 font-medium': status === 'running',
                 'text-green-700 dark:text-green-400': status === 'done',
                 'text-red-600': status === 'error'
@@ -77,7 +77,7 @@ export default function GenerationProgress({ flow, stepStatuses, logs, streamTex
               key={i}
               className={cn({
                 'text-gray-600 dark:text-gray-400': log.type === 'info',
-                'text-amber-600': log.type === 'warning',
+                'text-amber-700': log.type === 'warning',
                 'text-red-600': log.type === 'error'
               })}
             >

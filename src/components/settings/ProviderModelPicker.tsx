@@ -17,6 +17,8 @@ interface ProviderModelPickerProps {
 
 export default function ProviderModelPicker({ provider, model, statuses, onChange }: ProviderModelPickerProps) {
   const listId = useId()
+  const providerId = useId()
+  const modelId = useId()
   const [fetchedModels, setFetchedModels] = useState<Partial<Record<AIProviderId, string[]>>>({})
   const [isFetching, setIsFetching] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -47,8 +49,9 @@ export default function ProviderModelPicker({ provider, model, statuses, onChang
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
-        <label className={labelClass}>AIプロバイダー</label>
+        <label htmlFor={providerId} className={labelClass}>AIプロバイダー</label>
         <Select
+          id={providerId}
           value={provider}
           onChange={e => handleProviderChange(e.target.value as AIProviderId)}
           options={AI_PROVIDER_IDS.map(id => {
@@ -66,9 +69,10 @@ export default function ProviderModelPicker({ provider, model, statuses, onChang
         )}
       </div>
       <div>
-        <label className={labelClass}>モデル</label>
+        <label htmlFor={modelId} className={labelClass}>モデル</label>
         <div className="flex gap-2">
           <input
+            id={modelId}
             className="block w-full min-w-0 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 h-10 text-base shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             value={model}
             onChange={e => onChange(provider, e.target.value)}

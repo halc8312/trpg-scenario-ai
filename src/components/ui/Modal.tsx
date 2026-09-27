@@ -70,7 +70,7 @@ export default function Modal({ isOpen, onClose, title, children, className, ari
             <h2 id={titleId} className="text-lg sm:text-xl font-semibold">{title}</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+              className="text-gray-500 hover:text-gray-600 transition-colors p-1"
               aria-label="閉じる"
               type="button"
             >
