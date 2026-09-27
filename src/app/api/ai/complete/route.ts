@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { isAIProviderId } from '@/lib/ai/providers'
+import { isAIProviderId, normalizeModel } from '@/lib/ai/providers'
 import { getAdapter } from '@/lib/ai/server/registry'
 import { AIMessage, AIProviderError } from '@/lib/ai/types'
 
@@ -38,17 +38,18 @@ export async function POST(request: NextRequest) {
   try {
     const response = await getAdapter(provider).complete({
       provider,
-      model: model.trim(),
+      model: normalizeModel(provider, model),
       messages,
       temperature: typeof temperature === 'number' ? temperature : undefined,
       maxTokens: typeof maxTokens === 'number' && maxTokens > 0 ? Math.floor(maxTokens) : undefined
     })
     return NextResponse.json(response)
   } catch (error) {
-    console.error(`[ai:${provider}] completion failed:`, error)
+    // Provider error details may contain sensitive values; do not log them.
     if (error instanceof AIProviderError) {
       return NextResponse.json({ error: error.message }, { status: error.status })
     }
     return NextResponse.json({ error: 'AIの呼び出しに失敗しました' }, { status: 500 })
   }
 }
+

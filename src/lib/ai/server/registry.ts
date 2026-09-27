@@ -1,4 +1,4 @@
-import { AI_PROVIDERS, AI_PROVIDER_IDS } from '../providers'
+import { AI_PROVIDERS, AI_PROVIDER_IDS, normalizeModel } from '../providers'
 import { AIProviderAdapter, AIProviderError, AIProviderId, AIProviderStatus } from '../types'
 import { AnthropicAdapter } from './anthropic'
 import { OpenAICompatibleAdapter } from './openai-compatible'
@@ -12,7 +12,7 @@ function apiKeyFor(provider: AIProviderId): string | undefined {
 }
 
 export function getDefaultModel(provider: AIProviderId): string {
-  return process.env[AI_PROVIDERS[provider].modelEnv]?.trim() || AI_PROVIDERS[provider].defaultModel
+  return normalizeModel(provider, process.env[AI_PROVIDERS[provider].modelEnv]?.trim() || AI_PROVIDERS[provider].defaultModel)
 }
 
 export function getProviderStatuses(): AIProviderStatus[] {
@@ -73,3 +73,4 @@ function createAdapter(provider: AIProviderId, apiKey: string): AIProviderAdapte
       })
   }
 }
+

@@ -56,8 +56,8 @@ export const AI_PROVIDERS: Record<AIProviderId, AIProviderInfo> = {
     name: 'DeepSeek',
     apiKeyEnv: 'DEEPSEEK_API_KEY',
     modelEnv: 'DEEPSEEK_MODEL',
-    defaultModel: 'deepseek-chat',
-    suggestedModels: ['deepseek-chat', 'deepseek-reasoner'],
+    defaultModel: 'deepseek-flash',
+    suggestedModels: ['deepseek-flash', 'deepseek-v4-pro'],
     defaultMaxTokens: 8192,
     maxTemperature: 2,
     consoleUrl: 'https://platform.deepseek.com/api_keys'
@@ -68,4 +68,13 @@ export const AI_PROVIDER_IDS = Object.keys(AI_PROVIDERS) as AIProviderId[]
 
 export function isAIProviderId(value: unknown): value is AIProviderId {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(AI_PROVIDERS, value)
+}
+
+// Retired DeepSeek names may still be present in saved scenarios and preferences.
+export function normalizeModel(provider: AIProviderId, model: string): string {
+  const value = model.trim()
+  if (provider === 'deepseek' && ['deepseek-chat', 'deepseek-reasoner', 'deepseek-v4-flash', 'deepseek-v4-flash-vision-exp'].includes(value)) {
+    return AI_PROVIDERS.deepseek.defaultModel
+  }
+  return value
 }

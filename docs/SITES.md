@@ -5,8 +5,9 @@ Sites版は本人専用として利用します。公開範囲を変更する必
 ## 使い始める
 
 1. 既存のシナリオは、元のアプリでJSON出力し、Sites版の「JSONを読み込む」で取り込みます。
-2. AI生成・GM相談には、使うプロバイダーのAPIキーをSitesの環境変数へ秘密の値として設定します。
-3. 設定の反映後、「AI設定」で「利用可能」を確認し、プロバイダーとモデルを選びます。
+2. 「AI設定」の「DeepSeek APIキー」にキーを貼り付け、「接続確認して保存」を押します。接続確認では公式APIのモデル一覧を取得し、生成は行いません。
+3. 保存後はDeepSeek / `deepseek-flash`が既定になります。設定画面からキーの置き換え・削除もできます。
+4. OpenAI・Claude・Geminiを使う場合は、対応するAPIキーをSitesの環境変数へ秘密の値として設定します。
 
 | AI | 環境変数 |
 | --- | --- |
@@ -24,4 +25,10 @@ APIキーをチャット本文やリポジトリへ貼り付けないでくだ�
 
 ## 実装
 
-元のNext.jsアプリを維持したまま、Sites側ではVinext/Cloudflare Workersに合わせた別のソースを管理しています。ドメイン処理は共通で、主な差分はルーティング、React 19の型、Tailwind 4、APIキー設定の案内です。Sites版を更新するときは、変更した共通処理をSites側へ反映して再配置してください。
+元のNext.jsアプリを維持したまま、Sites側ではVinext/Cloudflare Workersに合わせた別のソースを管理しています。ドメイン処理は共通で、主な差分はルーティング、React 19の型、Tailwind 4、DeepSeekキーの設定・保存機能です。SitesではキーをAES-256-GCMで暗号化してD1に保存し、暗号鍵は秘密の環境変数 `AI_CREDENTIAL_SECRET` に置きます。保存済みキーがある間は暗号鍵を変更しないでください。キー本体はブラウザの保存領域やAPIの応答には含めません。本人専用のSitesアクセス制御と、変更APIの同一オリジン確認を使用します。Sites版を更新するときは、変更した共通処理をSites側へ反映して再配置してください。
+
+## DeepSeekのモデル
+
+2026年9月27日確認時点のFlash系API名は `deepseek-flash`（DeepSeek V4.1 Flash）です。旧名 `deepseek-chat` / `deepseek-reasoner` / `deepseek-v4-flash` は読み込み・送信時に新しい名前へ置き換えます。シナリオ生成は非思考モード（`reasoning_effort: "none"`）を使用します。
+
+公式資料: https://api-docs.deepseek.com/updates/ 、https://api-docs.deepseek.com/api/create-chat-completion/

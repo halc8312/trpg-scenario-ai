@@ -1,4 +1,4 @@
-import { AI_PROVIDERS, isAIProviderId } from './providers'
+import { AI_PROVIDERS, isAIProviderId, normalizeModel } from './providers'
 import { AIProviderId } from './types'
 
 // 新規シナリオ作成時に使うAI設定の既定値（ブラウザごとに保存）
@@ -12,8 +12,8 @@ export interface DefaultAISettings {
 const STORAGE_KEY = 'trpg-scenario-ai-settings'
 
 export const INITIAL_AI_SETTINGS: DefaultAISettings = {
-  provider: 'anthropic',
-  model: AI_PROVIDERS.anthropic.defaultModel,
+  provider: 'deepseek',
+  model: AI_PROVIDERS.deepseek.defaultModel,
   temperature: 0.8
 }
 
@@ -24,7 +24,7 @@ export function loadDefaultAISettings(): DefaultAISettings {
     if (stored && isAIProviderId(stored.provider) && typeof stored.model === 'string') {
       return {
         provider: stored.provider,
-        model: stored.model,
+        model: normalizeModel(stored.provider, stored.model),
         temperature: typeof stored.temperature === 'number' ? stored.temperature : INITIAL_AI_SETTINGS.temperature
       }
     }
@@ -37,3 +37,4 @@ export function loadDefaultAISettings(): DefaultAISettings {
 export function saveDefaultAISettings(settings: DefaultAISettings): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
 }
+
