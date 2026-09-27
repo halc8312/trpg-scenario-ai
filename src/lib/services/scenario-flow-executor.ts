@@ -4,6 +4,7 @@ import { AIMessage } from '@/lib/ai/types'
 import { extractJSON } from '@/lib/json-extract'
 import {
   ScenarioAISettings,
+  ScenarioContentReview,
   ScenarioRequest,
   ScenarioSection,
   TRPGScenario
@@ -11,6 +12,7 @@ import {
 import {
   ScenarioPromptContext,
   buildClueRepairPrompt,
+  buildContentReviewPrompt,
   buildConceptPrompt,
   buildEndingsPrompt,
   buildLocationsAndCluesPrompt,
@@ -21,6 +23,7 @@ import {
 import {
   mergeRepairClues,
   normalizeClues,
+  normalizeContentIssues,
   normalizeEndings,
   normalizeGMGuide,
   normalizeLocations,
@@ -34,7 +37,7 @@ import { ReferenceRepairReport, existingIdHint, repairAfterRegeneration } from '
 
 // フローのコンテキストのうち、シナリオとして保存するキー
 const SCENARIO_CONTEXT_KEYS = [
-  'overview', 'truth', 'npcs', 'locations', 'clues', 'scenes', 'endings', 'gmGuide', 'validation'
+  'overview', 'truth', 'npcs', 'locations', 'clues', 'scenes', 'endings', 'gmGuide', 'validation', 'review'
 ] as const
 
 export function contextToScenarioPatch(context: FlowContext): Partial<TRPGScenario> {
@@ -55,7 +58,8 @@ export function scenarioToContext(scenario: TRPGScenario): FlowContext {
     clues: scenario.clues,
     scenes: scenario.scenes,
     endings: scenario.endings,
-    gmGuide: scenario.gmGuide
+    gmGuide: scenario.gmGuide,
+    validation: scenario.validation
   }
 }
 
@@ -93,6 +97,8 @@ export class TRPGScenarioFlowExecutor implements FlowExecutor {
         return this.validate(context)
       case 'repair-clues':
         return this.repairClues(promptContext, context.validation?.revelationsNeedingClues ?? [])
+      case 'review-content':
+        return this.reviewContentStep(context)
       default:
         throw new Error(`Unknown step: ${step.id}`)
     }
@@ -158,6 +164,33 @@ export class TRPGScenarioFlowExecutor implements FlowExecutor {
 
     const result = await this.repairClues({ ...context, request: scenario.request }, validation.revelationsNeedingClues)
     return { ...result, ...this.validate({ ...context, ...result }) }
+  }
+
+  /**
+   * AIにシナリオ全体を読ませ、構造検証では分からない内容の矛盾を指摘させる。
+   */
+  async reviewContent(scenario: TRPGScenario): Promise<ScenarioContentReview> {
+    this.log('内容の矛盾をチェックしています...')
+    const data = await this.callJSON(scenario.request, buildContentReviewPrompt(scenario), 0.2)
+    const review: ScenarioContentReview = {
+      summary: typeof data.summary === 'string' ? data.summary : '',
+      issues: normalizeContentIssues(data.issues),
+      reviewedAt: new Date(),
+      model: this.aiSettings.model
+    }
+    this.log(`内容チェックで${review.issues.length}件の指摘がありました`)
+    return review
+  }
+
+  // 生成フローの最後に実行する。失敗してもシナリオ自体は完成しているので、警告だけ出して続ける
+  private async reviewContentStep(context: FlowContext): Promise<FlowContext> {
+    try {
+      const scenario = { ...context, aiSettings: this.aiSettings } as TRPGScenario
+      return { review: await this.reviewContent(scenario) }
+    } catch (error: any) {
+      this.log(`内容チェックに失敗しました（${error?.message ?? error}）。検証タブから再実行できます`, 'warning')
+      return {}
+    }
   }
 
   private async designConcept(ctx: ScenarioPromptContext): Promise<FlowContext> {

@@ -70,6 +70,7 @@ export default function TRPGScenarioPage({
   // 手動編集中の下書き（null のときは閲覧モード）
   const [draft, setDraft] = useState<TRPGScenario | null>(null)
   const [reinforcing, setReinforcing] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
   const autostartHandled = useRef(false)
 
   const persist = useCallback((updates: Partial<TRPGScenario>) => {
@@ -175,6 +176,20 @@ export default function TRPGScenarioPage({
     }
   }
 
+  const handleReview = async () => {
+    if (!scenario) return
+    setReviewing(true)
+    try {
+      const executor = new TRPGScenarioFlowExecutor(scenario.aiSettings)
+      persist({ review: await executor.reviewContent(scenario) })
+      addToast('内容のチェックが完了しました', 'success')
+    } catch (error: any) {
+      addToast(error?.message || '内容のチェックに失敗しました', 'error')
+    } finally {
+      setReviewing(false)
+    }
+  }
+
   // 編集中にページを離れようとしたら確認する
   useEffect(() => {
     if (!draft) return
@@ -219,7 +234,7 @@ export default function TRPGScenarioPage({
   const title = scenario.overview?.title || scenario.request.workingTitle || '（タイトル未定）'
   const hasContent = !!scenario.overview
   const isEditing = draft !== null
-  const busy = isGenerating || regenerating !== null || isEditing || reinforcing
+  const busy = isGenerating || regenerating !== null || isEditing || reinforcing || reviewing
   const currentTab = TABS.find(t => t.id === activeTab)!
   const fileBase = title.replace(/[\\/:*?"<>|]/g, '_')
 
@@ -371,6 +386,8 @@ export default function TRPGScenarioPage({
                     scenario={scenario}
                     onReinforce={handleReinforce}
                     isReinforcing={reinforcing}
+                    onReview={handleReview}
+                    isReviewing={reviewing}
                     disabled={busy}
                   />
                 )}
@@ -414,7 +431,7 @@ export default function TRPGScenarioPage({
 
 // JSON経由で複製したときに日付を Date に戻す
 function reviveDate(key: string, value: unknown) {
-  return (key === 'createdAt' || key === 'updatedAt' || key === 'checkedAt') && typeof value === 'string'
+  return (key === 'createdAt' || key === 'updatedAt' || key === 'checkedAt' || key === 'reviewedAt') && typeof value === 'string'
     ? new Date(value)
     : value
 }

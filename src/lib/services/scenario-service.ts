@@ -133,6 +133,9 @@ function reviveDates(s: any): TRPGScenario {
     updatedAt: new Date(s.updatedAt ?? Date.now()),
     validation: s.validation
       ? { ...s.validation, checkedAt: new Date(s.validation.checkedAt ?? Date.now()) }
+      : undefined,
+    review: s.review
+      ? { ...s.review, reviewedAt: new Date(s.review.reviewedAt ?? Date.now()) }
       : undefined
   }
 }

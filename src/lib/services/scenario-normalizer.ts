@@ -1,5 +1,7 @@
 import {
   ClueDiscovery,
+  ContentIssue,
+  ContentIssueCategory,
   Encounter,
   KeyRevelation,
   ScenarioClue,
@@ -258,4 +260,19 @@ export function mergeRepairClues(
     }),
     added
   }
+}
+
+const CONTENT_CATEGORIES: ContentIssueCategory[] = ['contradiction', 'timeline', 'npc', 'rules', 'safety', 'balance', 'other']
+const SEVERITIES = ['error', 'warning', 'info'] as const
+
+export function normalizeContentIssues(raw: unknown): ContentIssue[] {
+  return arr(raw)
+    .map((i: any) => ({
+      severity: (SEVERITIES.includes(i?.severity) ? i.severity : 'warning') as ContentIssue['severity'],
+      category: (CONTENT_CATEGORIES.includes(i?.category) ? i.category : 'other') as ContentIssueCategory,
+      message: str(i?.message),
+      suggestion: str(i?.suggestion),
+      targetIds: strArr(i?.targetIds)
+    }))
+    .filter(i => i.message)
 }

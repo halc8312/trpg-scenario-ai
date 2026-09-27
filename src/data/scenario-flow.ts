@@ -3,7 +3,7 @@ import { Flow } from '@/lib/flow/flow-engine'
 export const trpgScenarioFlow: Flow = {
   id: 'trpg-scenario-flow',
   name: 'TRPGシナリオ生成フロー',
-  description: '真相から逆算してNPC・手がかり・シーンを組み立て、構造検証と修復まで行うフロー',
+  description: '真相から逆算してNPC・手がかり・シーンを組み立て、構造検証・修復・内容チェックまで行うフロー',
   steps: [
     {
       id: 'design-concept',
@@ -82,6 +82,15 @@ export const trpgScenarioFlow: Flow = {
       input: ['truth', 'npcs', 'locations', 'clues', 'scenes', 'endings'],
       output: ['validation'],
       action: '補強後のシナリオを再検証してスコアを確定',
+      nextSteps: ['review-content']
+    },
+    {
+      id: 'review-content',
+      name: '内容の矛盾チェック',
+      type: 'validate',
+      input: ['request', 'truth', 'npcs', 'locations', 'clues', 'scenes', 'endings'],
+      output: ['review'],
+      action: 'AIがシナリオ全体を読み、真相と手がかりの食い違い・時系列・NPCの言動・ルールの書き方の問題を指摘',
       nextSteps: []
     }
   ]

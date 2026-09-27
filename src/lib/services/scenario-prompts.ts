@@ -343,6 +343,54 @@ ${json((ctx.scenes ?? []).map(s => ({ id: s.id, title: s.title, type: s.type, lo
 \`\`\``
 }
 
+export function buildContentReviewPrompt(scenario: TRPGScenario): string {
+  const system = getGameSystem(scenario.request.systemId)
+  const data = {
+    overview: scenario.overview,
+    truth: scenario.truth,
+    npcs: scenario.npcs,
+    locations: scenario.locations,
+    clues: scenario.clues,
+    scenes: scenario.scenes,
+    endings: scenario.endings
+  }
+
+  return `完成したシナリオの内容の整合性をレビューしてください。${system.gmTitle}がこのまま卓で使ったときに困る問題を見つけるのが目的です。
+
+# 依頼内容
+${formatRequest(scenario.request)}
+
+# シナリオ
+\`\`\`json
+${JSON.stringify(data)}
+\`\`\`
+
+# チェックする観点
+- contradiction: 真相と、手がかり・シーン・NPCの記述の食い違い（手がかりが真相と違う事実を示している等）
+- timeline: 過去の出来事・タイムライン・シーンの時系列の矛盾
+- npc: NPCの動機・秘密と、台詞や行動の不一致。真相を知らないはずのNPCが知っている等
+- rules: ${system.name}の判定の書式・技能名・データとして不自然なもの（${system.difficultyExamples.slice(0, 2).join(' / ')} のような書式が正しい）
+- safety: 「避けたい要素」に指定された内容が含まれていないか
+- balance: 難易度・人数・時間に対して明らかに無理のある展開や戦闘
+- other: 上記以外でセッションが破綻しうる問題
+
+# 要点
+- 実際に問題があるものだけを挙げる。推測や好みの問題は挙げない。問題がなければ issues は空配列にする
+- severity は、セッションが破綻する・進行不能になるものを error、混乱を招くものを warning、改善提案を info とする
+- targetIds には問題のある要素のID（npc-1, clue-2, scene-3 など）を入れる
+- suggestion には具体的な直し方を書く
+
+# 出力形式
+\`\`\`json
+{
+  "summary": "全体の所見（1〜2文）",
+  "issues": [
+    { "severity": "error | warning | info", "category": "contradiction", "targetIds": ["clue-2"], "message": "問題の内容", "suggestion": "直し方" }
+  ]
+}
+\`\`\``
+}
+
 function summarizeNPCs(npcs?: ScenarioNPC[]) {
   return (npcs ?? []).map(n => ({ id: n.id, name: n.name, role: n.role, secret: n.secret }))
 }

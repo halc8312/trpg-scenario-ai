@@ -68,6 +68,12 @@ export const AI_RESPONSES = {
       { revelationId: 'rev-1', sceneId: 'scene-3', title: '失踪者の名簿', description: '失踪者は全員祭りの前に神主と面会していた', locationId: 'loc-2', discovery: { skill: '図書館', difficulty: 'レギュラー' } }
     ]
   }),
+  review: json({
+    summary: '全体として筋は通っていますが、細かな食い違いがあります。',
+    issues: [
+      { severity: 'warning', category: 'contradiction', targetIds: ['clue-3'], message: '古文書は「満月の夜」としているが、真相では祭りの夜とされている', suggestion: '祭りの日を満月に設定する' }
+    ]
+  }),
   gm: { content: '案1: 佐伯に「あそこは子どもの頃から近づくなと言われていた」と言わせ、神社に誘導する。\n案2: 〈聞き耳〉で遠くの祭囃子を聞かせる。', finishReason: 'stop' }
 }
 
@@ -78,6 +84,7 @@ export function classifyRequest(body: { messages: { role: string; content: strin
   const last = body.messages[body.messages.length - 1]?.content ?? ''
   if (system.includes('アシスタント')) return 'gm'
   if (last.includes('手がかりが不足')) return 'repair'
+  if (last.includes('内容の整合性をレビュー')) return 'review'
   if (last.includes('概要と真相を設計')) return 'concept'
   if (last.includes('NPCを設計')) return 'npcs'
   if (last.includes('探索場所と手がかりを設計')) return 'clues'

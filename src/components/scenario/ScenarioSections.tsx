@@ -3,8 +3,8 @@
 import { ReactNode } from 'react'
 import { DIFFICULTY_LABELS, getGameSystem } from '@/data/game-systems'
 import { SCENE_TYPE_LABELS } from '@/lib/services/scenario-exporter'
-import { ScenarioIssueSeverity, TRPGScenario } from '@/lib/types'
-import { cn } from '@/lib/utils'
+import { ContentIssueCategory, ScenarioIssueSeverity, TRPGScenario } from '@/lib/types'
+import { cn, formatDate } from '@/lib/utils'
 
 interface SectionProps {
   scenario: TRPGScenario
@@ -374,10 +374,94 @@ const SEVERITY_STYLES: Record<ScenarioIssueSeverity, { label: string; className:
 interface ValidationSectionProps extends SectionProps {
   onReinforce?: () => void
   isReinforcing?: boolean
+  onReview?: () => void
+  isReviewing?: boolean
   disabled?: boolean
 }
 
-export function ValidationSection({ scenario, onReinforce, isReinforcing, disabled }: ValidationSectionProps) {
+const CONTENT_CATEGORY_LABELS: Record<ContentIssueCategory, string> = {
+  contradiction: '矛盾',
+  timeline: '時系列',
+  npc: 'NPC',
+  rules: 'ルール',
+  safety: 'NG要素',
+  balance: 'バランス',
+  other: 'その他'
+}
+
+function ContentReviewCard({ scenario, onReview, isReviewing, disabled }: ValidationSectionProps) {
+  const review = scenario.review
+  const names = new Map<string, string>([
+    ...(scenario.truth?.keyRevelations ?? []).map(r => [r.id, r.fact] as [string, string]),
+    ...scenario.npcs.map(n => [n.id, n.name] as [string, string]),
+    ...scenario.locations.map(l => [l.id, l.name] as [string, string]),
+    ...scenario.clues.map(c => [c.id, c.title] as [string, string]),
+    ...scenario.scenes.map(s => [s.id, s.title] as [string, string]),
+    ...scenario.endings.map(e => [e.id, e.title] as [string, string])
+  ])
+  // チェック後に編集や再生成で内容が変わっているか
+  const outdated = review && scenario.validation && scenario.validation.checkedAt.getTime() > review.reviewedAt.getTime()
+
+  return (
+    <Card
+      title={
+        <div className="flex flex-wrap items-center gap-2">
+          <span>AIによる内容チェック</span>
+          {review && (
+            <span className="text-xs font-normal text-gray-500">
+              {formatDate(review.reviewedAt)}（{review.model}）
+            </span>
+          )}
+          {onReview && (
+            <button
+              type="button"
+              className="ml-auto rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1 text-sm font-normal hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+              onClick={onReview}
+              disabled={disabled}
+            >
+              {isReviewing ? 'チェック中…' : review ? '再チェック' : 'AIで内容をチェック'}
+            </button>
+          )}
+        </div>
+      }
+    >
+      {!review ? (
+        <Empty>真相と手がかりの食い違い、時系列、NPCの言動、ルールの書き方などをAIが確認します。</Empty>
+      ) : (
+        <div className="space-y-3">
+          {outdated && (
+            <p className="text-xs text-amber-700 dark:text-amber-300">このチェックの後にシナリオが変更されています。再チェックをおすすめします。</p>
+          )}
+          {review.summary && <p className="text-sm text-gray-700 dark:text-gray-300">{review.summary}</p>}
+          {review.issues.length === 0 ? (
+            <Empty>内容の問題は見つかりませんでした。</Empty>
+          ) : (
+            <ul className="space-y-3">
+              {review.issues.map((issue, i) => (
+                <li key={i} className="text-sm">
+                  <div className="flex flex-wrap items-start gap-2">
+                    <Badge className={SEVERITY_STYLES[issue.severity].className}>{SEVERITY_STYLES[issue.severity].label}</Badge>
+                    <Badge className="bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+                      {CONTENT_CATEGORY_LABELS[issue.category]}
+                    </Badge>
+                    <span className="flex-1 text-gray-800 dark:text-gray-200">{issue.message}</span>
+                  </div>
+                  {issue.targetIds.length > 0 && (
+                    <p className="mt-1 text-xs text-gray-500">対象: {issue.targetIds.map(id => names.get(id) ?? id).join('、')}</p>
+                  )}
+                  {issue.suggestion && <p className="mt-1 text-xs text-green-700 dark:text-green-300">直し方: {issue.suggestion}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </Card>
+  )
+}
+
+export function ValidationSection(props: ValidationSectionProps) {
+  const { scenario, onReinforce, isReinforcing, disabled } = props
   const report = scenario.validation
   if (!report) return <Empty>検証はまだ実行されていません。</Empty>
 
@@ -411,7 +495,7 @@ export function ValidationSection({ scenario, onReinforce, isReinforcing, disabl
           </button>
         </div>
       )}
-      <Card title={`検出された項目（${report.issues.length}件）`}>
+      <Card title={`構造の検証（${report.issues.length}件）`}>
         {report.issues.length === 0 ? (
           <Empty>問題は見つかりませんでした。</Empty>
         ) : (
@@ -425,6 +509,7 @@ export function ValidationSection({ scenario, onReinforce, isReinforcing, disabl
           </ul>
         )}
       </Card>
+      <ContentReviewCard {...props} />
     </div>
   )
 }

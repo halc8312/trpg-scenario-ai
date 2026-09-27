@@ -179,6 +179,24 @@ export interface ScenarioValidationReport {
   checkedAt: Date
 }
 
+export type ContentIssueCategory = 'contradiction' | 'timeline' | 'npc' | 'rules' | 'safety' | 'balance' | 'other'
+
+// AIが内容を読んで指摘した問題（構造検証では分からない矛盾など）
+export interface ContentIssue {
+  severity: ScenarioIssueSeverity
+  category: ContentIssueCategory
+  message: string
+  suggestion: string
+  targetIds: string[]
+}
+
+export interface ScenarioContentReview {
+  summary: string
+  issues: ContentIssue[]
+  reviewedAt: Date
+  model: string
+}
+
 export interface TRPGScenario {
   id: string
   status: ScenarioStatus
@@ -193,6 +211,7 @@ export interface TRPGScenario {
   endings: ScenarioEnding[]
   gmGuide?: ScenarioGMGuide
   validation?: ScenarioValidationReport
+  review?: ScenarioContentReview
   lastError?: string
   createdAt: Date
   updatedAt: Date

@@ -235,6 +235,10 @@ describe('TRPG scenario flow', () => {
           { revelationId: 'rev-1', sceneId: 'scene-2', title: '祝詞の写し', description: '生贄の記述' }
         ]
       }))
+      .mockResolvedValueOnce(reply({
+        summary: '大きな問題はありません',
+        issues: [{ severity: 'warning', category: 'npc', targetIds: ['npc-1'], message: '神主の口調が不安定', suggestion: '丁寧語に統一' }, { message: '' }]
+      }))
 
     const executor = new TRPGScenarioFlowExecutor({ provider: 'anthropic', model: 'claude-opus-5', temperature: 0.8, maxTokens: 1000 })
     const engine = new FlowEngine(trpgScenarioFlow, executor)
@@ -247,14 +251,40 @@ describe('TRPG scenario flow', () => {
 
     expect(completed).toEqual([
       'design-concept', 'create-npcs', 'design-locations-clues', 'structure-scenes',
-      'design-endings', 'validate-structure', 'repair-clues', 'finalize'
+      'design-endings', 'validate-structure', 'repair-clues', 'finalize', 'review-content'
     ])
-    expect(complete).toHaveBeenCalledTimes(7)
+    expect(complete).toHaveBeenCalledTimes(8)
     expect(patch.overview?.title).toBe('霧隠れ村')
     expect(patch.clues).toHaveLength(3)
     expect(patch.scenes?.[0].clueIds).toEqual(['clue-r1'])
     expect(patch.validation?.needsRepair).toBe(false)
+    expect(patch.review?.issues).toEqual([
+      { severity: 'warning', category: 'npc', targetIds: ['npc-1'], message: '神主の口調が不安定', suggestion: '丁寧語に統一' }
+    ])
     // 生成時に選んだプロバイダーとモデルで呼び出している
     expect(complete.mock.calls[0][0]).toMatchObject({ provider: 'anthropic', model: 'claude-opus-5' })
+  })
+
+  it('finishes the flow even when the content review fails', async () => {
+    const complete = aiClient.complete as jest.Mock
+    complete.mockReset()
+    complete
+      .mockResolvedValueOnce(reply({ overview: { title: 'T' }, truth: { keyRevelations: [{ id: 'rev-1', fact: 'F', importance: 'optional' }] } }))
+      .mockResolvedValueOnce(reply({ npcs: [] }))
+      .mockResolvedValueOnce(reply({ locations: [], clues: [] }))
+      .mockResolvedValueOnce(reply({ scenes: [{ id: 'scene-1', title: 'S', type: 'climax' }] }))
+      .mockResolvedValueOnce(reply({ endings: [{ title: 'E' }] }))
+      .mockRejectedValueOnce(new Error('rate limited'))
+
+    const executor = new TRPGScenarioFlowExecutor({ provider: 'deepseek', model: 'deepseek-chat', temperature: 0.8, maxTokens: 1000 })
+    const engine = new FlowEngine(trpgScenarioFlow, executor)
+    executor.setFlowEngine(engine)
+    const logs: string[] = []
+    engine.on('log', message => logs.push(message))
+
+    const context = await engine.execute({ request })
+    expect(context.review).toBeUndefined()
+    expect(context.endings).toHaveLength(1)
+    expect(logs.some(l => l.includes('内容チェックに失敗しました'))).toBe(true)
   })
 })
