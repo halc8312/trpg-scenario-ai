@@ -20,7 +20,7 @@ import {
 import { trpgScenarioFlow } from '@/data/scenario-flow'
 import { DIFFICULTY_LABELS, getGameSystem } from '@/data/game-systems'
 import { FlowEngine } from '@/lib/flow/flow-engine'
-import { TRPGScenarioFlowExecutor, contextToScenarioPatch } from '@/lib/services/scenario-flow-executor'
+import { TRPGScenarioFlowExecutor, contextToScenarioPatch, scenarioToContext } from '@/lib/services/scenario-flow-executor'
 import { ScenarioExporter } from '@/lib/services/scenario-exporter'
 import { TRPGScenarioService } from '@/lib/services/scenario-service'
 import { finalizeEdits } from '@/lib/services/scenario-editing'
@@ -79,12 +79,16 @@ export default function TRPGScenarioPage({
     return updated
   }, [params.id])
 
-  const runGeneration = useCallback(async (target: TRPGScenario) => {
+  const runGeneration = useCallback(async (target: TRPGScenario, mode: 'fresh' | 'resume' = 'fresh') => {
+    // 途中再開のときは、完了済みのステップを飛ばして最初の未完了ステップから始める
+    const completedSteps = mode === 'resume' ? [...(target.generation?.completedSteps ?? [])] : []
+    const startStep = trpgScenarioFlow.steps.find(step => !completedSteps.includes(step.id))
+
     setIsGenerating(true)
-    setLogs([])
-    setStepStatuses({})
+    setLogs(mode === 'resume' && startStep ? [{ message: `「${startStep.name}」から再開します`, type: 'info' }] : [])
+    setStepStatuses(Object.fromEntries(completedSteps.map(id => [id, 'done' as StepStatus])))
     setActiveTab('overview')
-    persist({ status: 'generating', lastError: undefined })
+    persist({ status: 'generating', lastError: undefined, generation: { completedSteps } })
 
     const executor = new TRPGScenarioFlowExecutor(target.aiSettings)
     const engine = new FlowEngine(trpgScenarioFlow, executor)
@@ -93,14 +97,17 @@ export default function TRPGScenarioPage({
     engine.on('stepStart', step => setStepStatuses(prev => ({ ...prev, [step.id]: 'running' })))
     engine.on('stepComplete', step => {
       setStepStatuses(prev => ({ ...prev, [step.id]: 'done' }))
+      completedSteps.push(step.id)
       // 途中で失敗しても完成済みのセクションは残るよう、ステップごとに保存する
-      persist(contextToScenarioPatch(engine.getContext()))
+      persist({ ...contextToScenarioPatch(engine.getContext()), generation: { completedSteps: [...completedSteps] } })
     })
     engine.on('stepError', step => setStepStatuses(prev => ({ ...prev, [step.id]: 'error' })))
     engine.on('log', (message, type = 'info') => setLogs(prev => [...prev, { message, type }]))
 
     try {
-      const context = await engine.execute({ request: target.request })
+      const context = mode === 'resume' && startStep
+        ? await engine.execute(scenarioToContext(target), { startStepId: startStep.id })
+        : await engine.execute({ request: target.request })
       // 条件を満たさず実行されなかったステップ
       setStepStatuses(prev => {
         const next = { ...prev }
@@ -234,6 +241,7 @@ export default function TRPGScenarioPage({
   const title = scenario.overview?.title || scenario.request.workingTitle || '（タイトル未定）'
   const hasContent = !!scenario.overview
   const isEditing = draft !== null
+  const canResume = (scenario.generation?.completedSteps.length ?? 0) > 0
   const busy = isGenerating || regenerating !== null || isEditing || reinforcing || reviewing
   const currentTab = TABS.find(t => t.id === activeTab)!
   const fileBase = title.replace(/[\\/:*?"<>|]/g, '_')
@@ -302,9 +310,16 @@ export default function TRPGScenarioPage({
         )}
 
         {scenario.status === 'error' && !isGenerating && (
-          <div className="mb-6 rounded-md border border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-900/30 px-4 py-3 text-sm text-red-700 dark:text-red-200">
-            {scenario.lastError || 'シナリオの生成に失敗しました。'}
-            {hasContent && ' 生成済みのセクションは保存されています。'}
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3 rounded-md border border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-900/30 px-4 py-3 text-sm text-red-700 dark:text-red-200">
+            <p className="flex-grow">
+              {scenario.lastError || 'シナリオの生成に失敗しました。'}
+              {hasContent && ' 生成済みのセクションは保存されています。'}
+            </p>
+            {canResume && (
+              <Button size="sm" disabled={busy} onClick={() => runGeneration(scenario, 'resume')}>
+                続きから再開
+              </Button>
+            )}
           </div>
         )}
 

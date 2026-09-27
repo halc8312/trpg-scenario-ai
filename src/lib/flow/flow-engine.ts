@@ -90,13 +90,18 @@ export class FlowEngine {
     this.emit('log', message, type)
   }
 
-  async execute(initialContext: FlowContext = {}): Promise<FlowContext> {
+  /**
+   * フローを実行する。startStepId を指定すると、そのステップから途中再開する。
+   */
+  async execute(initialContext: FlowContext = {}, options: { startStepId?: string } = {}): Promise<FlowContext> {
     this.context = { ...initialContext }
     this.executionHistory = []
 
-    const startStep = this.flow.steps[0]
+    const startStep = options.startStepId
+      ? this.flow.steps.find(s => s.id === options.startStepId)
+      : this.flow.steps[0]
     if (!startStep) {
-      throw new Error('Flow has no steps')
+      throw new Error(options.startStepId ? `Step ${options.startStepId} not found` : 'Flow has no steps')
     }
 
     await this.executeStep(startStep.id)
@@ -136,9 +141,11 @@ export class FlowEngine {
         await this.executeStep(nextStepId)
       }
     } catch (error: any) {
+      // 後続のステップで既にラップ済みのエラーはそのまま伝える
+      if (error instanceof FlowStepError) throw error
       console.error(`Error executing step ${stepId}:`, error)
       this.emit('stepError', step, error)
-      throw new Error(`Flow execution failed at step ${stepId}: ${error}`)
+      throw new FlowStepError(step, error)
     }
   }
 
@@ -182,5 +189,12 @@ export class FlowEngine {
 
   getContext(): FlowContext {
     return { ...this.context }
+  }
+}
+
+export class FlowStepError extends Error {
+  constructor(public readonly step: FlowStep, public readonly cause: unknown) {
+    super(`「${step.name}」で失敗しました: ${cause instanceof Error ? cause.message : String(cause)}`)
+    this.name = 'FlowStepError'
   }
 }

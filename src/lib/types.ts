@@ -212,6 +212,8 @@ export interface TRPGScenario {
   gmGuide?: ScenarioGMGuide
   validation?: ScenarioValidationReport
   review?: ScenarioContentReview
+  // 生成フローで完了したステップ（途中再開に使う）
+  generation?: { completedSteps: string[] }
   lastError?: string
   createdAt: Date
   updatedAt: Date
