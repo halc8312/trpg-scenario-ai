@@ -314,6 +314,11 @@ export default function TRPGScenarioPage({
                 <Button variant="secondary" size="sm" disabled={busy} onClick={() => saveToFile(`${fileBase}.json`, scenario)}>
                   JSON出力
                 </Button>
+                <Link href={`/scenarios/${scenario.id}/print`} aria-disabled={busy} className={busy ? 'pointer-events-none opacity-50' : ''}>
+                  <Button variant="secondary" size="sm" disabled={busy} tabIndex={-1}>
+                    印刷・PDF
+                  </Button>
+                </Link>
               </>
             )}
             <Button
