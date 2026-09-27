@@ -14,6 +14,8 @@ interface GenerationProgressProps {
   flow: Flow
   stepStatuses: Record<string, StepStatus>
   logs: GenerationLog[]
+  // 実行中のステップでAIから受信しているテキスト
+  streamText?: string
 }
 
 const STATUS_ICON: Record<StepStatus, string> = {
@@ -24,7 +26,7 @@ const STATUS_ICON: Record<StepStatus, string> = {
   error: '×'
 }
 
-export default function GenerationProgress({ flow, stepStatuses, logs }: GenerationProgressProps) {
+export default function GenerationProgress({ flow, stepStatuses, logs, streamText }: GenerationProgressProps) {
   const done = flow.steps.filter(s => ['done', 'skipped'].includes(stepStatuses[s.id])).length
   const percent = Math.round((done / flow.steps.length) * 100)
 
@@ -58,6 +60,15 @@ export default function GenerationProgress({ flow, stepStatuses, logs }: Generat
           )
         })}
       </ol>
+
+      {!!streamText && (
+        <div className="mb-3">
+          <div className="text-xs text-gray-500 mb-1">AIから受信中… {streamText.length.toLocaleString()}文字</div>
+          <pre className="max-h-24 overflow-hidden whitespace-pre-wrap break-all rounded bg-gray-900 p-3 text-[11px] leading-snug text-green-300">
+            {streamText.slice(-400)}
+          </pre>
+        </div>
+      )}
 
       {logs.length > 0 && (
         <div className="max-h-40 overflow-y-auto rounded bg-gray-50 dark:bg-gray-900 p-3 text-xs font-mono space-y-0.5">

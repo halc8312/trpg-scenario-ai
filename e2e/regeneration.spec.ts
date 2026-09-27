@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { createScenario, mockAI } from './fixtures'
+import { createScenario, fulfillAI, mockAI } from './fixtures'
 
 const json = (data: unknown) => ({ content: '```json\n' + JSON.stringify(data) + '\n```', finishReason: 'stop' })
 
@@ -9,9 +9,7 @@ test('NPCを再生成してもシーンからの参照が名前で付け替え�
     override: async (kind, route) => {
       if (kind !== 'npcs' || !regenerating) return false
       // IDを変えて返し、佐伯は削除、村長を追加する
-      await route.fulfill({
-        json: json({ npcs: [{ id: 'npc-10', name: '宗像 巌', role: '黒幕' }, { id: 'npc-11', name: '村長・田所', role: '協力者' }] })
-      })
+      await fulfillAI(route, json({ npcs: [{ id: 'npc-10', name: '宗像 巌', role: '黒幕' }, { id: 'npc-11', name: '村長・田所', role: '協力者' }] }))
       return true
     }
   })

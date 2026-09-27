@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import {
   AICompletionRequest,
+  AIDeltaListener,
   AICompletionResponse,
   AIFinishReason,
   AIProviderAdapter,
@@ -15,6 +16,8 @@ interface OpenAICompatibleConfig {
   // OpenAI本家は max_completion_tokens、互換APIは max_tokens を使う
   tokenParam: 'max_completion_tokens' | 'max_tokens'
   maxTemperature: number
+  // ストリーミング時に使用量を最後のチャンクで受け取れるか
+  supportsStreamUsage: boolean
 }
 
 // OpenAI の推論モデルは temperature の指定を受け付けない
@@ -32,7 +35,7 @@ export class OpenAICompatibleAdapter implements AIProviderAdapter {
     this.client = new OpenAI({ apiKey: config.apiKey, baseURL: config.baseURL })
   }
 
-  async complete(request: AICompletionRequest): Promise<AICompletionResponse> {
+  async complete(request: AICompletionRequest, onDelta?: AIDeltaListener): Promise<AICompletionResponse> {
     const params: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
       model: request.model,
       messages: request.messages
@@ -44,6 +47,8 @@ export class OpenAICompatibleAdapter implements AIProviderAdapter {
     }
 
     try {
+      if (onDelta) return await this.completeStreaming(params, onDelta)
+
       const completion = await this.client.chat.completions.create(params)
       const choice = completion.choices[0]
       return {
@@ -56,6 +61,35 @@ export class OpenAICompatibleAdapter implements AIProviderAdapter {
     } catch (error) {
       throw this.toProviderError(error)
     }
+  }
+
+  private async completeStreaming(
+    params: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming,
+    onDelta: AIDeltaListener
+  ): Promise<AICompletionResponse> {
+    const stream = await this.client.chat.completions.create({
+      ...params,
+      stream: true,
+      ...(this.config.supportsStreamUsage ? { stream_options: { include_usage: true } } : {})
+    })
+
+    let content = ''
+    let finishReason: string | null | undefined
+    let usage: AICompletionResponse['usage']
+    for await (const chunk of stream) {
+      const choice = chunk.choices[0]
+      const delta = choice?.delta?.content
+      if (delta) {
+        content += delta
+        onDelta(delta)
+      }
+      if (choice?.finish_reason) finishReason = choice.finish_reason
+      if (chunk.usage) {
+        usage = { inputTokens: chunk.usage.prompt_tokens, outputTokens: chunk.usage.completion_tokens }
+      }
+    }
+
+    return { content, finishReason: mapFinishReason(finishReason), usage }
   }
 
   async listModels(): Promise<string[]> {

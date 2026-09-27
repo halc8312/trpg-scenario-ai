@@ -110,9 +110,27 @@ export async function mockAI(page: Page, options: MockAIOptions = {}) {
     calls.push({ kind, body })
     if (options.delayMs) await new Promise(r => setTimeout(r, options.delayMs))
     if (options.override && (await options.override(kind, route))) return
-    await route.fulfill({ json: kind === 'unknown' ? { content: '', finishReason: 'stop' } : AI_RESPONSES[kind] })
+    await fulfillAI(route, kind === 'unknown' ? { content: '', finishReason: 'stop' } : AI_RESPONSES[kind])
   })
   return calls
+}
+
+/**
+ * AIの応答を返す。ストリーミング要求にはNDJSON（本文を3分割した差分 + 完了イベント）で返す。
+ */
+export async function fulfillAI(route: Route, response: { content: string; finishReason: string }) {
+  const body = route.request().postDataJSON()
+  if (!body.stream) {
+    await route.fulfill({ json: response })
+    return
+  }
+  const size = Math.ceil(response.content.length / 3) || 1
+  const deltas = [0, 1, 2].map(i => response.content.slice(i * size, (i + 1) * size)).filter(Boolean)
+  const lines = [...deltas.map(text => ({ type: 'delta', text })), { type: 'done', response }]
+  await route.fulfill({
+    contentType: 'application/x-ndjson',
+    body: lines.map(line => JSON.stringify(line)).join('\n') + '\n'
+  })
 }
 
 /**

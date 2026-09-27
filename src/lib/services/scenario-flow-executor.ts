@@ -63,12 +63,19 @@ export function scenarioToContext(scenario: TRPGScenario): FlowContext {
   }
 }
 
+export interface ExecutorOptions {
+  // 生成中のテキスト（その呼び出しで受信した全文）を受け取る
+  onStream?: (receivedText: string) => void
+}
+
 export class TRPGScenarioFlowExecutor implements FlowExecutor {
   private aiSettings: ScenarioAISettings
   private flowEngine?: FlowEngine
+  private options: ExecutorOptions
 
-  constructor(aiSettings: ScenarioAISettings) {
+  constructor(aiSettings: ScenarioAISettings, options: ExecutorOptions = {}) {
     this.aiSettings = aiSettings
+    this.options = options
   }
 
   setFlowEngine(engine: FlowEngine): void {
@@ -283,13 +290,26 @@ export class TRPGScenarioFlowExecutor implements FlowExecutor {
 
     // JSONの解析に失敗した場合は1回だけ再試行する
     for (let attempt = 1; attempt <= 2; attempt++) {
-      const response = await aiClient.complete({
-        provider: this.aiSettings.provider,
-        model: this.aiSettings.model,
-        messages,
-        temperature,
-        maxTokens: this.aiSettings.maxTokens
-      })
+      let received = ''
+      const onStream = this.options.onStream
+      onStream?.('')
+      const response = await aiClient.complete(
+        {
+          provider: this.aiSettings.provider,
+          model: this.aiSettings.model,
+          messages,
+          temperature,
+          maxTokens: this.aiSettings.maxTokens
+        },
+        onStream
+          ? {
+              onDelta: delta => {
+                received += delta
+                onStream(received)
+              }
+            }
+          : {}
+      )
 
       const parsed = extractJSON(response.content)
       if (parsed && typeof parsed === 'object') return parsed

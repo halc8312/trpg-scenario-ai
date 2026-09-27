@@ -53,7 +53,8 @@ function createAdapter(provider: AIProviderId, apiKey: string): AIProviderAdapte
         apiKey,
         baseURL: process.env.OPENAI_BASE_URL || undefined,
         tokenParam: 'max_completion_tokens',
-        maxTemperature
+        maxTemperature,
+        supportsStreamUsage: true
       })
     case 'gemini':
       return new OpenAICompatibleAdapter({
@@ -61,7 +62,8 @@ function createAdapter(provider: AIProviderId, apiKey: string): AIProviderAdapte
         apiKey,
         baseURL: process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/',
         tokenParam: 'max_tokens',
-        maxTemperature
+        maxTemperature,
+        supportsStreamUsage: false
       })
     case 'deepseek':
       return new OpenAICompatibleAdapter({
@@ -69,7 +71,8 @@ function createAdapter(provider: AIProviderId, apiKey: string): AIProviderAdapte
         apiKey,
         baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
         tokenParam: 'max_tokens',
-        maxTemperature
+        maxTemperature,
+        supportsStreamUsage: true
       })
   }
 }

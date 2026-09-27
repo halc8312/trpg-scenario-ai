@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import {
   AICompletionRequest,
+  AIDeltaListener,
   AICompletionResponse,
   AIFinishReason,
   AIProviderAdapter,
@@ -32,7 +33,7 @@ export class AnthropicAdapter implements AIProviderAdapter {
     this.client = new Anthropic({ apiKey })
   }
 
-  async complete(request: AICompletionRequest): Promise<AICompletionResponse> {
+  async complete(request: AICompletionRequest, onDelta?: AIDeltaListener): Promise<AICompletionResponse> {
     const system = request.messages
       .filter(m => m.role === 'system')
       .map(m => m.content)
@@ -52,11 +53,20 @@ export class AnthropicAdapter implements AIProviderAdapter {
     }
 
     try {
-      const message: CompletedMessage = SERVER_FALLBACK_MODELS.has(request.model)
-        ? await this.client.beta.messages
-            .stream({ ...params, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' })
-            .finalMessage()
-        : await this.client.messages.stream(params).finalMessage()
+      let message: CompletedMessage
+      if (SERVER_FALLBACK_MODELS.has(request.model)) {
+        const stream = this.client.beta.messages.stream({
+          ...params,
+          betas: ['server-side-fallback-2026-07-01'],
+          fallbacks: 'default'
+        })
+        if (onDelta) stream.on('text', delta => onDelta(delta))
+        message = await stream.finalMessage()
+      } else {
+        const stream = this.client.messages.stream(params)
+        if (onDelta) stream.on('text', delta => onDelta(delta))
+        message = await stream.finalMessage()
+      }
 
       if (message.stop_reason === 'refusal') {
         const category = message.stop_details?.category

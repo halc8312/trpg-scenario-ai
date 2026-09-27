@@ -20,6 +20,7 @@ export default function GMAssistantPanel({ scenario }: { scenario: TRPGScenario 
   const [messages, setMessages] = useState<GMChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [partialAnswer, setPartialAnswer] = useState('')
   const [error, setError] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -34,7 +35,7 @@ export default function GMAssistantPanel({ scenario }: { scenario: TRPGScenario 
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  }, [messages, isLoading])
+  }, [messages, isLoading, partialAnswer])
 
   const saveMessages = (next: GMChatMessage[]) => {
     setMessages(next)
@@ -48,16 +49,18 @@ export default function GMAssistantPanel({ scenario }: { scenario: TRPGScenario 
     setInput('')
     setError(null)
     setIsLoading(true)
+    setPartialAnswer('')
     const history = messages
     saveMessages([...history, { role: 'user', content: text }])
 
     try {
-      const answer = await GMAssistantService.ask(scenario, history, text)
+      const answer = await GMAssistantService.ask(scenario, history, text, setPartialAnswer)
       saveMessages([...history, { role: 'user', content: text }, { role: 'assistant', content: answer }])
     } catch (e: any) {
       setError(e.message || '回答の取得に失敗しました')
     } finally {
       setIsLoading(false)
+      setPartialAnswer('')
     }
   }
 
@@ -109,7 +112,13 @@ export default function GMAssistantPanel({ scenario }: { scenario: TRPGScenario 
             </div>
           </div>
         ))}
-        {isLoading && <p className="text-sm text-gray-500 animate-pulse">考えています...</p>}
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] rounded-lg px-4 py-2 text-sm whitespace-pre-wrap bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100">
+              {partialAnswer || <span className="text-gray-500 animate-pulse">考えています...</span>}
+            </div>
+          </div>
+        )}
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div ref={bottomRef} />
       </div>

@@ -7,7 +7,7 @@ test('条件を入力するとシナリオが生成され、手がかり不足�
 
   expect(calls.map(c => c.kind)).toEqual(['concept', 'npcs', 'clues', 'scenes', 'endings', 'repair', 'review'])
   // 既定のAI設定（Claude）で呼び出している
-  expect(calls[0].body).toMatchObject({ provider: 'anthropic', model: 'claude-opus-5' })
+  expect(calls[0].body).toMatchObject({ provider: 'anthropic', model: 'claude-opus-5', stream: true })
 
   await expect(page.getByRole('heading', { name: '霧隠れ村の祭囃子' })).toBeVisible()
 

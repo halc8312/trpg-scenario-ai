@@ -63,6 +63,20 @@ const claudeMessage = (overrides: Record<string, unknown> = {}) => ({
   ...overrides
 })
 
+// Anthropic SDK の MessageStream を模したオブジェクト
+function streamOf(message: unknown, deltas: string[] = []) {
+  const listeners: ((d: string) => void)[] = []
+  return {
+    on: (event: string, listener: (d: string) => void) => {
+      if (event === 'text') listeners.push(listener)
+    },
+    finalMessage: async () => {
+      deltas.forEach(d => listeners.forEach(l => l(d)))
+      return message
+    }
+  }
+}
+
 beforeEach(() => {
   jest.clearAllMocks()
   openaiCreate.mockResolvedValue({
@@ -73,7 +87,7 @@ beforeEach(() => {
 
 describe('OpenAICompatibleAdapter', () => {
   it('uses max_completion_tokens and omits temperature for OpenAI reasoning models', async () => {
-    const adapter = new OpenAICompatibleAdapter({ provider: 'openai', apiKey: 'k', tokenParam: 'max_completion_tokens', maxTemperature: 2 })
+    const adapter = new OpenAICompatibleAdapter({ provider: 'openai', apiKey: 'k', tokenParam: 'max_completion_tokens', maxTemperature: 2, supportsStreamUsage: true })
     const res = await adapter.complete(baseRequest({ model: 'gpt-6-sol' }))
 
     const params = openaiCreate.mock.calls[0][0]
@@ -88,7 +102,8 @@ describe('OpenAICompatibleAdapter', () => {
       apiKey: 'k',
       baseURL: 'https://api.deepseek.com',
       tokenParam: 'max_tokens',
-      maxTemperature: 2
+      maxTemperature: 2,
+      supportsStreamUsage: true
     })
     await adapter.complete(baseRequest({ provider: 'deepseek', model: 'deepseek-chat', temperature: 5 }))
 
@@ -100,7 +115,7 @@ describe('OpenAICompatibleAdapter', () => {
 
   it('wraps SDK errors with the HTTP status', async () => {
     openaiCreate.mockRejectedValueOnce(new (OpenAI as any).APIError(401, 'invalid key'))
-    const adapter = new OpenAICompatibleAdapter({ provider: 'gemini', apiKey: 'k', tokenParam: 'max_tokens', maxTemperature: 2 })
+    const adapter = new OpenAICompatibleAdapter({ provider: 'gemini', apiKey: 'k', tokenParam: 'max_tokens', maxTemperature: 2, supportsStreamUsage: false })
     await expect(adapter.complete(baseRequest({ provider: 'gemini' }))).rejects.toMatchObject({
       provider: 'gemini',
       status: 401
@@ -108,9 +123,37 @@ describe('OpenAICompatibleAdapter', () => {
   })
 })
 
+describe('OpenAICompatibleAdapter streaming', () => {
+  it('forwards deltas and collects usage from the final chunk', async () => {
+    openaiCreate.mockResolvedValueOnce(
+      (async function* () {
+        yield { choices: [{ delta: { content: '```json' } }] }
+        yield { choices: [{ delta: { content: '\n{}' }, finish_reason: 'stop' }] }
+        yield { choices: [], usage: { prompt_tokens: 5, completion_tokens: 7 } }
+      })()
+    )
+    const adapter = new OpenAICompatibleAdapter({ provider: 'deepseek', apiKey: 'k', tokenParam: 'max_tokens', maxTemperature: 2, supportsStreamUsage: true })
+    const deltas: string[] = []
+    const res = await adapter.complete(baseRequest({ provider: 'deepseek', model: 'deepseek-chat' }), d => deltas.push(d))
+
+    const params = openaiCreate.mock.calls[0][0]
+    expect(params.stream).toBe(true)
+    expect(params.stream_options).toEqual({ include_usage: true })
+    expect(deltas).toEqual(['```json', '\n{}'])
+    expect(res).toEqual({ content: '```json\n{}', finishReason: 'stop', usage: { inputTokens: 5, outputTokens: 7 } })
+  })
+
+  it('does not request usage from providers that do not support it', async () => {
+    openaiCreate.mockResolvedValueOnce((async function* () {})())
+    const adapter = new OpenAICompatibleAdapter({ provider: 'gemini', apiKey: 'k', tokenParam: 'max_tokens', maxTemperature: 2, supportsStreamUsage: false })
+    await adapter.complete(baseRequest({ provider: 'gemini' }), () => {})
+    expect(openaiCreate.mock.calls[0][0]).not.toHaveProperty('stream_options')
+  })
+})
+
 describe('AnthropicAdapter', () => {
   it('moves system messages to the system field, returns only text, and enables server-side fallback', async () => {
-    anthropicBetaStream.mockReturnValue({ finalMessage: () => Promise.resolve(claudeMessage()) })
+    anthropicBetaStream.mockReturnValue(streamOf(claudeMessage()))
     const adapter = new AnthropicAdapter('k')
     const res = await adapter.complete(baseRequest({ provider: 'anthropic', model: 'claude-opus-5' }))
 
@@ -125,7 +168,7 @@ describe('AnthropicAdapter', () => {
   })
 
   it('sends temperature only to models that accept it', async () => {
-    anthropicStream.mockReturnValue({ finalMessage: () => Promise.resolve(claudeMessage({ stop_reason: 'max_tokens' })) })
+    anthropicStream.mockReturnValue(streamOf(claudeMessage({ stop_reason: 'max_tokens' })))
     const adapter = new AnthropicAdapter('k')
     const res = await adapter.complete(baseRequest({ provider: 'anthropic', model: 'claude-haiku-4-5', temperature: 1.5 }))
 
@@ -137,11 +180,17 @@ describe('AnthropicAdapter', () => {
     expect(anthropicStream.mock.calls[1][0]).not.toHaveProperty('temperature')
   })
 
+  it('forwards text deltas while streaming', async () => {
+    anthropicBetaStream.mockReturnValue(streamOf(claudeMessage(), ['```json', '\n{}\n```']))
+    const deltas: string[] = []
+    await new AnthropicAdapter('k').complete(baseRequest({ provider: 'anthropic', model: 'claude-opus-5' }), d => deltas.push(d))
+    expect(deltas).toEqual(['```json', '\n{}\n```'])
+  })
+
   it('turns a refusal into a readable error', async () => {
-    anthropicBetaStream.mockReturnValue({
-      finalMessage: () =>
-        Promise.resolve(claudeMessage({ content: [], stop_reason: 'refusal', stop_details: { type: 'refusal', category: 'cyber' } }))
-    })
+    anthropicBetaStream.mockReturnValue(
+      streamOf(claudeMessage({ content: [], stop_reason: 'refusal', stop_details: { type: 'refusal', category: 'cyber' } }))
+    )
     const adapter = new AnthropicAdapter('k')
     await expect(adapter.complete(baseRequest({ provider: 'anthropic', model: 'claude-opus-5' }))).rejects.toMatchObject({
       status: 422,

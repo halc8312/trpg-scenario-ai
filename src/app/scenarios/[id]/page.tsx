@@ -71,6 +71,26 @@ export default function TRPGScenarioPage({
   const [draft, setDraft] = useState<TRPGScenario | null>(null)
   const [reinforcing, setReinforcing] = useState(false)
   const [reviewing, setReviewing] = useState(false)
+  // AIから受信中のテキスト（画面の更新は間引く）
+  const [streamText, setStreamText] = useState('')
+  const pendingStreamText = useRef('')
+  const streamTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const onStream = useCallback((text: string) => {
+    pendingStreamText.current = text
+    // 100msごとにまとめて画面を更新し、最後の受信分も必ず反映する
+    if (streamTimer.current) return
+    streamTimer.current = setTimeout(() => {
+      streamTimer.current = null
+      setStreamText(pendingStreamText.current)
+    }, 100)
+  }, [])
+  const clearStream = useCallback(() => {
+    if (streamTimer.current) clearTimeout(streamTimer.current)
+    streamTimer.current = null
+    pendingStreamText.current = ''
+    setStreamText('')
+  }, [])
+  useEffect(() => clearStream, [clearStream])
   const autostartHandled = useRef(false)
 
   const persist = useCallback((updates: Partial<TRPGScenario>) => {
@@ -90,7 +110,7 @@ export default function TRPGScenarioPage({
     setActiveTab('overview')
     persist({ status: 'generating', lastError: undefined, generation: { completedSteps } })
 
-    const executor = new TRPGScenarioFlowExecutor(target.aiSettings)
+    const executor = new TRPGScenarioFlowExecutor(target.aiSettings, { onStream })
     const engine = new FlowEngine(trpgScenarioFlow, executor)
     executor.setFlowEngine(engine)
 
@@ -124,8 +144,9 @@ export default function TRPGScenarioPage({
       addToast('シナリオの生成に失敗しました', 'error')
     } finally {
       setIsGenerating(false)
+      clearStream()
     }
-  }, [persist, addToast])
+  }, [persist, addToast, onStream, clearStream])
 
   useEffect(() => {
     let loaded = TRPGScenarioService.get(params.id)
@@ -154,7 +175,7 @@ export default function TRPGScenarioPage({
     if (!scenario) return
     setRegenerating(section)
     try {
-      const executor = new TRPGScenarioFlowExecutor(scenario.aiSettings)
+      const executor = new TRPGScenarioFlowExecutor(scenario.aiSettings, { onStream })
       const { patch, report } = await executor.regenerateSection(scenario, section, instruction.trim() || undefined)
       persist(patch)
       setInstruction('')
@@ -166,6 +187,7 @@ export default function TRPGScenarioPage({
       addToast(error?.message || '再生成に失敗しました', 'error')
     } finally {
       setRegenerating(null)
+      clearStream()
     }
   }
 
@@ -173,13 +195,14 @@ export default function TRPGScenarioPage({
     if (!scenario) return
     setReinforcing(true)
     try {
-      const executor = new TRPGScenarioFlowExecutor(scenario.aiSettings)
+      const executor = new TRPGScenarioFlowExecutor(scenario.aiSettings, { onStream })
       persist(await executor.reinforceClues(scenario))
       addToast('手がかりを補強しました', 'success')
     } catch (error: any) {
       addToast(error?.message || '手がかりの補強に失敗しました', 'error')
     } finally {
       setReinforcing(false)
+      clearStream()
     }
   }
 
@@ -187,13 +210,14 @@ export default function TRPGScenarioPage({
     if (!scenario) return
     setReviewing(true)
     try {
-      const executor = new TRPGScenarioFlowExecutor(scenario.aiSettings)
+      const executor = new TRPGScenarioFlowExecutor(scenario.aiSettings, { onStream })
       persist({ review: await executor.reviewContent(scenario) })
       addToast('内容のチェックが完了しました', 'success')
     } catch (error: any) {
       addToast(error?.message || '内容のチェックに失敗しました', 'error')
     } finally {
       setReviewing(false)
+      clearStream()
     }
   }
 
@@ -305,7 +329,7 @@ export default function TRPGScenarioPage({
 
         {(isGenerating || (logs.length > 0 && !hasContent)) && (
           <div className="mb-6">
-            <GenerationProgress flow={trpgScenarioFlow} stepStatuses={stepStatuses} logs={logs} />
+            <GenerationProgress flow={trpgScenarioFlow} stepStatuses={stepStatuses} logs={logs} streamText={streamText} />
           </div>
         )}
 
@@ -429,7 +453,9 @@ export default function TRPGScenarioPage({
                     disabled={busy}
                     onClick={() => handleRegenerate(currentTab.section!)}
                   >
-                    {regenerating === currentTab.section ? '再生成中...' : '再生成'}
+                    {regenerating === currentTab.section
+                      ? `再生成中…${streamText ? `（${streamText.length.toLocaleString()}文字）` : ''}`
+                      : '再生成'}
                   </Button>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
