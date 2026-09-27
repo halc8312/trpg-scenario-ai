@@ -19,14 +19,18 @@ APIキーはサーバーの環境変数にのみ置き、ブラウザからは `
 `src/data/scenario-flow.ts` で定義し、`src/lib/flow/flow-engine.ts` で実行します。
 
 ```
-design-concept → create-npcs → design-locations-clues → structure-scenes
-  → design-endings → validate-structure → repair-clues（手がかりが不足する場合のみ）→ finalize
+design-concept → create-npcs → design-locations-clues → structure-scenes → design-endings
+  → create-pregens（サンプルキャラクターを作る場合のみ）
+  → validate-structure → repair-clues（手がかりが不足する場合のみ）→ finalize
+  → review-content（AIによる内容チェック。失敗しても生成は完了扱い）
 ```
 
 最初に「真相」と「PLが到達すべき重要情報（keyRevelations）」を決め、そこから逆算して手がかりとシーンを配置します。
 各要素はIDで互いを参照します（`rev-1`, `npc-1`, `loc-1`, `clue-1`, `scene-1`, `end-1`）。AIの出力は `scenario-normalizer.ts` でIDの欠落や重複、型の揺れを補正してから使います。
 
-各ステップが終わるたびに途中結果を保存するため、途中で失敗しても生成済みのセクションは残ります。
+各ステップが終わるたびに途中結果と完了したステップを保存するため、途中で失敗しても生成済みのセクションは残り、「続きから再開」で最初の未完了ステップから再開できます。
+
+セクション単位の再生成では、作り直す前の要素のIDをAIに伝えて同じIDを使わせ、それでもIDが変わった要素は名前で対応付けて参照を張り直します（`reference-repair.ts`）。手動編集で要素を削除した場合も、存在しない要素への参照を取り除きます。
 
 ## 構造検証（AIを使わない）
 
@@ -39,6 +43,17 @@ design-concept → create-npcs → design-locations-clues → structure-scenes
 | シーン遷移 | 導入シーンから全シーンに到達できるか、行き止まりがないか、クライマックスがあるか |
 | エンディング | 1つ以上あるか（2つ以上を推奨） |
 | 時間配分 | セッション時間に対してシーン数が適切か（1シーン30〜45分が目安） |
+
+## 保存
+
+`src/lib/services/scenario-service.ts` が起動時に保存先から全件をメモリへ読み込み、読み取りは同期的に、書き込みはメモリを更新したうえで保存先へ順番に反映します。
+保存先は IndexedDB（`src/lib/storage/scenario-store.ts`）で、使えない環境では localStorage を使います。
+全データのバックアップと復元は `backup-service.ts` です。
+
+## ストリーミング
+
+`/api/ai/complete` に `stream: true` を付けて呼ぶと、生成中のテキストを1行1イベントのJSON（NDJSON）で順に返します（`delta` → … → `done` または `error`）。
+画面では受信中の文字数と末尾のテキストを表示し、GM相談の回答は書かれていく様子のまま表示します。
 
 ## AIプロバイダー
 

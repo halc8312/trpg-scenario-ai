@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint / Typecheck / Unit tests / Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:coverage
+      - run: npm run build
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # AIの呼び出しはテスト内で固定データに差し替えるため、APIキーは不要
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t trpg-scenario-ai .
+      - name: Smoke test
+        run: |
+          docker run -d --name app -p 3000:3000 -e DEEPSEEK_API_KEY=dummy trpg-scenario-ai
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/ > /dev/null && break
+            sleep 1
+          done
+          curl -sf http://localhost:3000/ > /dev/null
+          curl -sf http://localhost:3000/api/ai/providers | grep -q '"id":"deepseek","name":"DeepSeek","configured":true'
+      - if: failure()
+        run: docker logs app || true
