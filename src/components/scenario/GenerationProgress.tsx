@@ -14,6 +14,7 @@ interface GenerationProgressProps {
   flow: Flow
   stepStatuses: Record<string, StepStatus>
   logs: GenerationLog[]
+  background?: boolean
 }
 
 const STATUS_ICON: Record<StepStatus, string> = {
@@ -24,7 +25,7 @@ const STATUS_ICON: Record<StepStatus, string> = {
   error: '×'
 }
 
-export default function GenerationProgress({ flow, stepStatuses, logs }: GenerationProgressProps) {
+export default function GenerationProgress({ flow, stepStatuses, logs, background = false }: GenerationProgressProps) {
   const done = flow.steps.filter(s => ['done', 'skipped'].includes(stepStatuses[s.id])).length
   const percent = Math.round((done / flow.steps.length) * 100)
 
@@ -34,6 +35,7 @@ export default function GenerationProgress({ flow, stepStatuses, logs }: Generat
         <h3 className="font-semibold text-gray-900 dark:text-white">シナリオを生成しています</h3>
         <span className="text-sm text-gray-500">{percent}%</span>
       </div>
+      <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">{background ? 'サーバーで生成中です。画面を閉じても続行し、戻ると進捗と結果を表示します。' : '生成中はこの画面を開いたままにしてください。中断した場合も、保存済みの続きから再開できます。'}</p>
       <div className="h-2 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden mb-4">
         <div className="h-full bg-blue-600 transition-all" style={{ width: `${percent}%` }} />
       </div>

@@ -28,9 +28,11 @@ export default function TRPGScenariosPage() {
   }, [])
 
   const handleCreate = (request: ScenarioRequest, aiSettings: ScenarioAISettings) => {
-    const scenario = TRPGScenarioService.create(request, aiSettings)
-    setShowCreateModal(false)
-    router.push(`/scenarios/${scenario.id}?autostart=1`)
+    try {
+      const scenario = TRPGScenarioService.create(request, aiSettings)
+      setShowCreateModal(false)
+      router.push(`/scenarios/${scenario.id}?autostart=1`)
+    } catch (error: any) { addToast(error.message, 'error') }
   }
 
   const handleImport = async () => {
@@ -65,6 +67,7 @@ export default function TRPGScenariosPage() {
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
             条件を入力するだけで、真相・NPC・手がかり・シーン・エンディングまで揃ったシナリオをAIが設計します。
             重要な情報に複数の手がかりがあるかを自動検証し、足りなければ補強します。AIは右上の「AI設定」で切り替えられます。
+            保存先はこのブラウザです。端末を移すときはJSONを出力してください。
           </p>
         </div>
 
@@ -107,3 +110,4 @@ export default function TRPGScenariosPage() {
     </div>
   )
 }
+

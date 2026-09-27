@@ -6,7 +6,7 @@ export type TRPGSystemId = 'coc7' | 'dnd5e' | 'sw25' | 'generic'
 
 export type ScenarioDifficulty = 'easy' | 'normal' | 'hard' | 'deadly'
 
-export type ScenarioStatus = 'draft' | 'generating' | 'complete' | 'error'
+export type ScenarioStatus = 'draft' | 'generating' | 'complete' | 'review' | 'error'
 
 // ユーザーがシナリオ作成時に指定する条件
 export interface ScenarioRequest {
@@ -194,8 +194,19 @@ export interface TRPGScenario {
   gmGuide?: ScenarioGMGuide
   validation?: ScenarioValidationReport
   lastError?: string
+  // Next unfinished step; saved together with each completed section.
+  generationStep?: string
+  generationJobId?: string
   createdAt: Date
   updatedAt: Date
+  history?: ScenarioRevision[]
+}
+
+export interface ScenarioRevision {
+  id: string
+  label: string
+  savedAt: Date
+  data: Omit<TRPGScenario, 'history'>
 }
 
 // 個別に再生成できるセクション

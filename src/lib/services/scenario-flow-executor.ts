@@ -54,7 +54,8 @@ export function scenarioToContext(scenario: TRPGScenario): FlowContext {
     clues: scenario.clues,
     scenes: scenario.scenes,
     endings: scenario.endings,
-    gmGuide: scenario.gmGuide
+    gmGuide: scenario.gmGuide,
+    validation: scenario.validation
   }
 }
 
@@ -62,7 +63,7 @@ export class TRPGScenarioFlowExecutor implements FlowExecutor {
   private aiSettings: ScenarioAISettings
   private flowEngine?: FlowEngine
 
-  constructor(aiSettings: ScenarioAISettings) {
+  constructor(aiSettings: ScenarioAISettings, private completeAI: typeof aiClient.complete = aiClient.complete) {
     this.aiSettings = aiSettings
   }
 
@@ -98,7 +99,8 @@ export class TRPGScenarioFlowExecutor implements FlowExecutor {
   }
 
   /**
-   * 既存シナリオの一部だけを作り直す。他のセクションはそのまま使い、検証結果も更新する。
+   * 選択箇所から依存する後続セクションまで再生成する。
+   * 完了するまで保存用パッチを返さないため、失敗時は元のシナリオを維持できる。
    */
   async regenerateSection(
     scenario: TRPGScenario,
@@ -106,29 +108,26 @@ export class TRPGScenarioFlowExecutor implements FlowExecutor {
     instruction?: string
   ): Promise<Partial<TRPGScenario>> {
     const context = scenarioToContext(scenario)
-    const promptContext: ScenarioPromptContext = { ...context, request: scenario.request, instruction }
-
-    let result: FlowContext
-    switch (section) {
-      case 'concept':
-        result = await this.designConcept(promptContext)
-        break
-      case 'npcs':
-        result = await this.createNPCs(promptContext)
-        break
-      case 'locationsAndClues':
-        result = await this.designLocationsAndClues(promptContext)
-        break
-      case 'scenes':
-        result = await this.structureScenes(promptContext)
-        break
-      case 'endings':
-        result = await this.designEndings(promptContext)
-        break
+    const sections: ScenarioSection[] = ['concept', 'npcs', 'locationsAndClues', 'scenes', 'endings']
+    const start = sections.indexOf(section)
+    if (start < 0) throw new Error('再生成する項目が不明です')
+    for (const current of sections.slice(start)) {
+      const ctx: ScenarioPromptContext = { ...context, request: scenario.request, instruction: current === section ? instruction : undefined }
+      let result: FlowContext
+      switch (current) {
+        case 'concept': result = await this.designConcept(ctx); break
+        case 'npcs': result = await this.createNPCs(ctx); break
+        case 'locationsAndClues': result = await this.designLocationsAndClues(ctx); break
+        case 'scenes': result = await this.structureScenes(ctx); break
+        case 'endings': result = await this.designEndings(ctx); break
+      }
+      Object.assign(context, result)
     }
-
-    const merged = { ...context, ...result }
-    return { ...contextToScenarioPatch(result), ...this.validate(merged) }
+    Object.assign(context, this.validate(context))
+    if (context.validation.needsRepair) {
+      Object.assign(context, await this.repairClues({ ...context, request: scenario.request }, context.validation.revelationsNeedingClues))
+    }
+    return { ...contextToScenarioPatch(context), ...this.validate(context) }
   }
 
   private async designConcept(ctx: ScenarioPromptContext): Promise<FlowContext> {
@@ -221,12 +220,14 @@ export class TRPGScenarioFlowExecutor implements FlowExecutor {
 
     // JSONの解析に失敗した場合は1回だけ再試行する
     for (let attempt = 1; attempt <= 2; attempt++) {
-      const response = await aiClient.complete({
+      const response = await this.completeAI({
         provider: this.aiSettings.provider,
         model: this.aiSettings.model,
         messages,
         temperature,
         maxTokens: this.aiSettings.maxTokens
+      }, {
+        onRetry: attempt => this.log(`通信が中断されました。画面に戻ってから再試行します（${attempt}/2）`, 'warning')
       })
 
       const parsed = extractJSON(response.content)

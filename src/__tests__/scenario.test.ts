@@ -258,3 +258,151 @@ describe('TRPG scenario flow', () => {
     expect(complete.mock.calls[0][0]).toMatchObject({ provider: 'anthropic', model: 'claude-opus-5' })
   })
 })
+
+
+describe('regressions: graph validation', () => {
+  it('does not count clues in unreachable scenes', () => {
+    const scenario = baseScenario()
+    scenario.scenes[0].nextSceneIds = ['scene-4']
+    const report = ScenarioValidator.validate(scenario)
+    expect(ScenarioValidator.getAccessibleClueIds(scenario).size).toBe(0)
+    expect(report.needsRepair).toBe(true)
+    expect(report.revelationsNeedingClues).toContain('rev-1')
+  })
+
+  it('does not count NPC or location clues in unreachable scenes', () => {
+    const scenario = baseScenario()
+    scenario.scenes[0].nextSceneIds = ['scene-4']
+    scenario.scenes[1].locationId = 'loc-1'
+    scenario.clues = scenario.clues.map(c => ({ ...c, locationId: 'loc-1' }))
+    expect(ScenarioValidator.getAccessibleClueIds(scenario).size).toBe(0)
+  })
+
+  it('detects a reachable closed loop despite a separate reachable climax', () => {
+    const scenario = baseScenario()
+    scenario.scenes[0].nextSceneIds = ['scene-2', 'scene-3', 'scene-4']
+    scenario.scenes[1].nextSceneIds = ['scene-2']
+    const report = ScenarioValidator.validate(scenario)
+    expect(report.issues.some(i => i.targetId === 'scene-2' && i.severity === 'error' && i.category === 'scene-flow')).toBe(true)
+    expect(report.score).toBeLessThan(100)
+  })
+
+  it('allows a cycle with an exit to a climax', () => {
+    const scenario = baseScenario()
+    scenario.scenes[1].nextSceneIds = ['scene-2', 'scene-4']
+    expect(ScenarioValidator.validate(scenario).issues.filter(i => i.category === 'scene-flow')).toEqual([])
+  })
+
+  it('reports missing core information and duplicate ids', () => {
+    const scenario = baseScenario()
+    scenario.truth = normalizeTruth({})
+    scenario.scenes[1].id = scenario.scenes[0].id
+    const issues = ScenarioValidator.validate(scenario).issues
+    expect(issues.some(i => i.category === 'clue-coverage' && i.severity === 'error')).toBe(true)
+    expect(issues.some(i => i.category === 'reference' && i.severity === 'error')).toBe(true)
+  })
+})
+
+describe('regressions: import and history', () => {
+  beforeEach(() => localStorage.clear())
+
+  it.each([
+    { request }, { ...baseScenario(), createdAt: new Date().toISOString() }
+  ])('accepts valid scenario data', data => {
+    expect(TRPGScenarioService.import(data).request.systemId).toBe('coc7')
+  })
+
+  it.each([
+    { ...baseScenario(), npcs: null },
+    { ...baseScenario(), scenes: 'invalid' },
+    { ...baseScenario(), request: {} },
+    { ...baseScenario(), request: { ...request, sessionHours: -1 } },
+    { ...baseScenario(), aiSettings: { provider: 'constructor' } },
+    { ...baseScenario(), createdAt: 'not-a-date' },
+    { ...baseScenario(), status: 'unknown' },
+    { ...baseScenario(), clues: [clue('same', 'rev-1'), clue('same', 'rev-1')] }
+  ])('rejects malformed imports without changing saved data', data => {
+    const original = TRPGScenarioService.create(request)
+    const before = localStorage.getItem('trpg-scenarios')
+    expect(() => TRPGScenarioService.import(data)).toThrow('形式が正しくありません')
+    expect(localStorage.getItem('trpg-scenarios')).toBe(before)
+    expect(TRPGScenarioService.getAll()[0].id).toBe(original.id)
+  })
+
+  it('restores snapshots while preserving the current id and limits history to five', () => {
+    const original = TRPGScenarioService.create(request)
+    TRPGScenarioService.update(original.id, baseScenario())
+    for (let index = 0; index < 7; index++) {
+      TRPGScenarioService.updateWithHistory(original.id, { request: { ...request, workingTitle: `Version ${index}` } }, `Before ${index}`)
+    }
+    const current = TRPGScenarioService.get(original.id)!
+    expect(current.history).toHaveLength(5)
+    expect(current.history![0].data).not.toHaveProperty('history')
+    const restored = TRPGScenarioService.restore(original.id, current.history![0].id)!
+    expect(restored.id).toBe(original.id)
+    expect(restored.request.workingTitle).toBe('Version 5')
+    expect(restored.history![0].data.request.workingTitle).toBe('Version 6')
+  })
+
+  it('exports only explicitly public fields', () => {
+    const scenario = { ...baseScenario(), request: { ...request, premise: 'PRIVATE_PREMISE' },
+      overview: { title: '公開タイトル', tagline: '', playerSynopsis: '公開あらすじ', hook: '公開導入',
+        recommendedSkills: [], estimatedPlayTime: '', recommendedPlayers: '' },
+      gmGuide: { pacing: 'PRIVATE_PACING', tips: [], rescueMeasures: [], safetyNotes: 'PRIVATE_NOTES' }
+    } as unknown as TRPGScenario
+    const md = ScenarioExporter.toPlayerMarkdown(scenario)
+    expect(md).toContain('公開あらすじ')
+    expect(md).not.toContain('神主')
+    expect(md).not.toContain('PRIVATE_')
+    expect(md).not.toContain('手がかり')
+  })
+})
+
+describe('regressions: regeneration and failure', () => {
+  const settings = { provider: 'anthropic' as const, model: 'mock', temperature: 0.8, maxTokens: 1000 }
+  const reply = (data: unknown) => ({ content: JSON.stringify(data), finishReason: 'stop' })
+  beforeEach(() => (aiClient.complete as jest.Mock).mockReset())
+
+  it('regenerates all dependent sections using the new truth', async () => {
+    const original = { ...baseScenario(), aiSettings: settings } as TRPGScenario
+    const changed = baseScenario()
+    changed.truth = normalizeTruth({ summary: '犯人はB', keyRevelations: [{ id: 'rev-1', fact: 'Bが犯人', importance: 'critical' }] })
+    changed.clues = changed.clues.slice(0, 3).map(c => ({ ...c, description: 'Bを示す証拠' }))
+    changed.scenes[2].clueIds = ['clue-3']
+    const complete = aiClient.complete as jest.Mock
+    complete.mockResolvedValueOnce(reply({ overview: { title: '新しい真相' }, truth: changed.truth }))
+      .mockResolvedValueOnce(reply({ npcs: [] }))
+      .mockResolvedValueOnce(reply({ locations: changed.locations, clues: changed.clues }))
+      .mockResolvedValueOnce(reply({ scenes: changed.scenes }))
+      .mockResolvedValueOnce(reply({ endings: changed.endings, gmGuide: {} }))
+    const patch = await new TRPGScenarioFlowExecutor(settings).regenerateSection(original, 'concept', '犯人をBにする')
+    expect(complete).toHaveBeenCalledTimes(5)
+    expect(patch.truth?.summary).toBe('犯人はB')
+    expect(patch.clues?.[0].description).toBe('Bを示す証拠')
+    expect(complete.mock.calls[1][0].messages[1].content).toContain('犯人はB')
+    expect(original.truth?.summary).toContain('神主')
+  })
+
+  it('does not mutate the original when a dependent generation fails', async () => {
+    const original = { ...baseScenario(), aiSettings: settings } as TRPGScenario
+    const before = JSON.stringify(original)
+    ;(aiClient.complete as jest.Mock).mockResolvedValueOnce(reply({ npcs: [] })).mockRejectedValueOnce(new Error('offline'))
+    await expect(new TRPGScenarioFlowExecutor(settings).regenerateSection(original, 'npcs')).rejects.toThrow('offline')
+    expect(JSON.stringify(original)).toBe(before)
+  })
+
+  it('does not flag already-completed steps when a later step fails', async () => {
+    const steps = trpgScenarioFlow.steps.slice(0, 2).map((step, index) => ({ ...step, nextSteps: index === 0 ? ['create-npcs'] : [] }))
+    const engine = new FlowEngine({ ...trpgScenarioFlow, steps }, { executeStep: async step => {
+      if (step.id === 'create-npcs') throw new Error('failed')
+      return { overview: {}, truth: {} }
+    } })
+    const failures: string[] = []
+    engine.on('stepError', step => failures.push(step.id))
+    const errorLog = jest.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      await expect(engine.execute()).rejects.toThrow('failed')
+      expect(failures).toEqual(['create-npcs'])
+    } finally { errorLog.mockRestore() }
+  })
+})

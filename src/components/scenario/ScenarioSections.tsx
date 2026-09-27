@@ -384,6 +384,7 @@ export function ValidationSection({ scenario }: SectionProps) {
           <div className={cn('text-4xl font-bold', scoreColor)}>{report.score}</div>
           <div className="text-sm text-gray-600 dark:text-gray-300">
             <p>シナリオ構造の検証スコア（100点満点）</p>
+            <p className="text-sm text-gray-500 mt-1">IDと遷移構造を確認しています。物語の矛盾・判定の妥当性・手がかりの独立性はGMが確認してください。</p>
             <p className="text-xs text-gray-500 mt-1">
               重要情報ごとの手がかり数（3つ以上推奨）、ID参照の整合性、シーン遷移、エンディング、時間配分をチェックしています。
             </p>
@@ -407,3 +408,4 @@ export function ValidationSection({ scenario }: SectionProps) {
     </div>
   )
 }
+

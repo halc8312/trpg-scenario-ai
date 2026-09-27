@@ -14,7 +14,7 @@ import {
   ScenarioTruth,
   TRPGScenario
 } from '@/lib/types'
-import { MIN_CLUES_PER_CRITICAL_REVELATION } from './scenario-validator'
+import { MIN_CLUES_PER_CRITICAL_REVELATION, ScenarioValidator } from './scenario-validator'
 
 export interface ScenarioPromptContext {
   request: ScenarioRequest
@@ -84,6 +84,7 @@ export function buildConceptPrompt(ctx: ScenarioPromptContext): string {
 
 # 依頼内容
 ${formatRequest(ctx.request)}
+${ctx.overview || ctx.truth ? `# 変更前の概要と真相\n${json({ overview: ctx.overview, truth: ctx.truth })}\n` : ""}
 ${formatInstruction(ctx.instruction)}
 # 設計の要点
 - overview はPLに公開してよい情報のみ（ネタバレ禁止）
@@ -297,17 +298,25 @@ ${formatInstruction(ctx.instruction)}
 
 export function buildClueRepairPrompt(ctx: ScenarioPromptContext, revelationIds: string[]): string {
   const system = getGameSystem(ctx.request.systemId)
-  const targets = (ctx.truth?.keyRevelations ?? []).filter(r => revelationIds.includes(r.id))
+  const validationInput = { request: ctx.request, truth: ctx.truth, npcs: ctx.npcs ?? [], locations: ctx.locations ?? [], clues: ctx.clues ?? [], scenes: ctx.scenes ?? [], endings: [] }
+  const reachable = ScenarioValidator.getReachableSceneIds(validationInput)
+  const accessible = ScenarioValidator.getAccessibleClueIds(validationInput)
+  const targets = (ctx.truth?.keyRevelations ?? []).filter(r => revelationIds.includes(r.id)).map(r => ({
+    ...r, minimumAdditionalClues: Math.max(0, MIN_CLUES_PER_CRITICAL_REVELATION - (ctx.clues ?? []).filter(c => c.revelationId === r.id && accessible.has(c.id)).length)
+  }))
   const existing = (ctx.clues ?? []).filter(c => revelationIds.includes(c.revelationId))
 
   return `シナリオの検証で、以下の重要情報に到達するための手がかりが不足していることがわかりました。
 PLが1回の判定失敗で詰まらないよう、手がかりを追加してください。
 
+# 依頼内容
+${formatRequest(ctx.request)}
+
 # 手がかりが不足している重要情報
 ${json(targets)}
 
 # 既存の手がかり（重複しない別ルートを用意すること）
-${json(existing.map(c => ({ id: c.id, revelationId: c.revelationId, title: c.title, description: c.description })))}
+${json(existing.map(c => ({ id: c.id, revelationId: c.revelationId, title: c.title, description: c.description, accessible: accessible.has(c.id) })))}
 
 # 使える場所
 ${json((ctx.locations ?? []).map(l => ({ id: l.id, name: l.name })))}
@@ -315,11 +324,11 @@ ${json((ctx.locations ?? []).map(l => ({ id: l.id, name: l.name })))}
 # 使えるNPC
 ${json(summarizeNPCs(ctx.npcs))}
 
-# 使えるシーン
-${json((ctx.scenes ?? []).map(s => ({ id: s.id, title: s.title, type: s.type, locationId: s.locationId })))}
+# 使えるシーン（導入から到達可能なものだけ）
+${json((ctx.scenes ?? []).filter(s => reachable.has(s.id)).map(s => ({ id: s.id, title: s.title, type: s.type, locationId: s.locationId })))}
 
 # 要点
-- 各重要情報について、既存と合わせて${MIN_CLUES_PER_CRITICAL_REVELATION}個以上になるように追加する
+- 各重要情報について minimumAdditionalClues 個以上追加する。accessible が false の既存手がかりは入手可能数に数えない
 - 新しい手がかりは既存と異なる場所・NPC・技能で入手できるようにする
 - sceneId には手がかりを入手できるシーンのIDを必ず指定する
 - 判定は ${system.difficultyExamples.slice(0, 2).join(' / ')} のような書式で
@@ -371,8 +380,12 @@ export function buildGMAssistantSystemPrompt(scenario: TRPGScenario): string {
 - 判定が必要なら、このシステムの書式（${system.difficultyExamples[0]} など）で具体的に提示する
 - PLの楽しさを最優先し、シナリオから外れても物語が破綻しない着地点を示す
 
+# 依頼内容（避けたい要素を守ること）
+${formatRequest(scenario.request)}
+
 # シナリオデータ
 \`\`\`json
 ${JSON.stringify(digest)}
 \`\`\``
 }
+

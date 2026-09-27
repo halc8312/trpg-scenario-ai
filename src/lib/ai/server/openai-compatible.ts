@@ -38,6 +38,9 @@ export class OpenAICompatibleAdapter implements AIProviderAdapter {
       messages: request.messages
     }
 
+    // Preserve the old deepseek-chat non-thinking behavior for structured scenario generation.
+    if (this.config.provider === 'deepseek') params.reasoning_effort = 'none'
+
     if (request.maxTokens) params[this.config.tokenParam] = request.maxTokens
     if (request.temperature !== undefined && this.supportsTemperature(request.model)) {
       params.temperature = Math.min(Math.max(request.temperature, 0), this.config.maxTemperature)
@@ -77,9 +80,15 @@ export class OpenAICompatibleAdapter implements AIProviderAdapter {
 
   private toProviderError(error: unknown): AIProviderError {
     if (error instanceof OpenAI.APIError) {
-      return new AIProviderError(error.message, this.config.provider, error.status ?? 502)
+      const message = this.config.provider === 'deepseek'
+        ? error.status === 401 ? 'DeepSeekのAPIキーが無効です。AI設定で更新してください。'
+          : error.status === 402 ? 'DeepSeekの残高が不足しています。APIの利用残高を確認してください。'
+          : error.status === 429 ? 'DeepSeekの利用制限に達しました。少し待って再試行してください。'
+          : 'DeepSeekのリクエストに失敗しました。モデル名と設定を確認して再試行してください。'
+        : error.message
+      return new AIProviderError(message, this.config.provider, error.status ?? 502)
     }
-    const message = error instanceof Error ? error.message : String(error)
+    const message = this.config.provider === 'deepseek' ? 'DeepSeekに接続できませんでした。再試行してください。' : error instanceof Error ? error.message : String(error)
     return new AIProviderError(message, this.config.provider, 502)
   }
 }
@@ -96,3 +105,4 @@ function mapFinishReason(reason: string | null | undefined): AIFinishReason {
       return 'other'
   }
 }
+

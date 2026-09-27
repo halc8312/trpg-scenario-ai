@@ -90,13 +90,13 @@ export class FlowEngine {
     this.emit('log', message, type)
   }
 
-  async execute(initialContext: FlowContext = {}): Promise<FlowContext> {
+  async execute(initialContext: FlowContext = {}, startStepId?: string): Promise<FlowContext> {
     this.context = { ...initialContext }
     this.executionHistory = []
 
-    const startStep = this.flow.steps[0]
+    const startStep = startStepId ? this.flow.steps.find(step => step.id === startStepId) : this.flow.steps[0]
     if (!startStep) {
-      throw new Error('Flow has no steps')
+      throw new Error(startStepId ? `Unknown starting step: ${startStepId}` : 'Flow has no steps')
     }
 
     await this.executeStep(startStep.id)
@@ -132,14 +132,13 @@ export class FlowEngine {
 
       this.emit('stepComplete', step)
 
-      for (const nextStepId of step.nextSteps) {
-        await this.executeStep(nextStepId)
-      }
     } catch (error: any) {
       console.error(`Error executing step ${stepId}:`, error)
       this.emit('stepError', step, error)
-      throw new Error(`Flow execution failed at step ${stepId}: ${error}`)
+      throw new Error(`${step.name}で停止しました。${error instanceof Error ? error.message : String(error)}`)
     }
+    // 後続ステップの失敗を完了済みのステップへ重複通知しない。
+    for (const nextStepId of step.nextSteps) await this.executeStep(nextStepId)
   }
 
   private evaluateConditions(conditions: FlowCondition[]): boolean {
