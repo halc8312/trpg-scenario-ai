@@ -1,4 +1,5 @@
 import { AIProviderId } from '@/lib/ai/types'
+import { ScenarioUsage } from '@/lib/ai/usage'
 
 // TRPGシナリオの型定義
 
@@ -252,6 +253,7 @@ export interface TRPGScenario {
   // 生成フローで完了したステップ（途中再開に使う）
   generation?: { completedSteps: string[] }
   session?: ScenarioSessionState
+  usage?: ScenarioUsage
   lastError?: string
   createdAt: Date
   updatedAt: Date

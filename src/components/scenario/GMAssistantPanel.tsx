@@ -5,6 +5,7 @@ import Button from '@/components/ui/Button'
 import { getGameSystem } from '@/data/game-systems'
 import { GMAssistantService } from '@/lib/services/gm-assistant-service'
 import { GMChatMessage, TRPGScenario } from '@/lib/types'
+import { TokenUsage } from '@/lib/ai/usage'
 import { cn } from '@/lib/utils'
 
 const QUICK_PROMPTS = [
@@ -14,7 +15,13 @@ const QUICK_PROMPTS = [
   'このシナリオに合う、PCが休息する場面の描写を書いて'
 ]
 
-export default function GMAssistantPanel({ scenario }: { scenario: TRPGScenario }) {
+export default function GMAssistantPanel({
+  scenario,
+  onUsage
+}: {
+  scenario: TRPGScenario
+  onUsage?: (usage: TokenUsage | undefined) => void
+}) {
   const storageKey = `trpg-gm-chat-${scenario.id}`
   const gmTitle = getGameSystem(scenario.request.systemId).gmTitle
   const [messages, setMessages] = useState<GMChatMessage[]>([])
@@ -54,7 +61,7 @@ export default function GMAssistantPanel({ scenario }: { scenario: TRPGScenario 
     saveMessages([...history, { role: 'user', content: text }])
 
     try {
-      const answer = await GMAssistantService.ask(scenario, history, text, setPartialAnswer)
+      const answer = await GMAssistantService.ask(scenario, history, text, setPartialAnswer, onUsage)
       saveMessages([...history, { role: 'user', content: text }, { role: 'assistant', content: answer }])
     } catch (e: any) {
       setError(e.message || '回答の取得に失敗しました')

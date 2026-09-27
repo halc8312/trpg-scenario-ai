@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import ProviderModelPicker from './ProviderModelPicker'
+import UsageAndPricing from './UsageAndPricing'
 import { AI_PROVIDERS } from '@/lib/ai/providers'
 import { DefaultAISettings, loadDefaultAISettings, saveDefaultAISettings } from '@/lib/ai/settings'
 import { useAIProviders } from '@/lib/ai/useAIProviders'
@@ -22,8 +23,14 @@ export default function AISettingsModal({ isOpen, onClose }: AISettingsModalProp
     if (isOpen) setSettings(loadDefaultAISettings())
   }, [isOpen])
 
+  const savePricing = useRef<() => void>(() => {})
+  const registerSave = useCallback((save: () => void) => {
+    savePricing.current = save
+  }, [])
+
   const handleSave = () => {
     saveDefaultAISettings(settings)
+    savePricing.current()
     onClose()
   }
 
@@ -96,6 +103,8 @@ export default function AISettingsModal({ isOpen, onClose }: AISettingsModalProp
             </p>
           </div>
         </section>
+
+        <UsageAndPricing isOpen={isOpen} registerSave={registerSave} />
 
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={onClose}>

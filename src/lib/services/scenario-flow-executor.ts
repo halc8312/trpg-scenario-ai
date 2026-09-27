@@ -1,5 +1,6 @@
 import { FlowContext, FlowEngine, FlowExecutor, FlowStep } from '@/lib/flow/flow-engine'
 import { aiClient } from '@/lib/ai/client'
+import { TokenUsage } from '@/lib/ai/usage'
 import { AIMessage } from '@/lib/ai/types'
 import { extractJSON } from '@/lib/json-extract'
 import {
@@ -69,6 +70,8 @@ export function scenarioToContext(scenario: TRPGScenario): FlowContext {
 export interface ExecutorOptions {
   // 生成中のテキスト（その呼び出しで受信した全文）を受け取る
   onStream?: (receivedText: string) => void
+  // AIを1回呼び出すたびに使用量を受け取る（使用量が返らない場合は undefined）
+  onUsage?: (usage: TokenUsage | undefined, settings: ScenarioAISettings) => void
 }
 
 export class TRPGScenarioFlowExecutor implements FlowExecutor {
@@ -326,6 +329,8 @@ export class TRPGScenarioFlowExecutor implements FlowExecutor {
             }
           : {}
       )
+
+      this.options.onUsage?.(response.usage, this.aiSettings)
 
       const parsed = extractJSON(response.content)
       if (parsed && typeof parsed === 'object') return parsed

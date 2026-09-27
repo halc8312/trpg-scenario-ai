@@ -2,7 +2,9 @@ import { Page, Route } from '@playwright/test'
 
 // AIの応答を固定の内容に差し替えるためのデータとヘルパー
 
-const json = (data: unknown) => ({ content: '```json\n' + JSON.stringify(data) + '\n```', finishReason: 'stop' })
+// 使用量は1回あたり入力1,000 / 出力500トークンとして返す
+const USAGE = { inputTokens: 1000, outputTokens: 500 }
+const json = (data: unknown) => ({ content: '```json\n' + JSON.stringify(data) + '\n```', finishReason: 'stop', usage: USAGE })
 
 export const AI_RESPONSES = {
   concept: json({

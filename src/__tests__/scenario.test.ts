@@ -248,7 +248,11 @@ describe('TRPG scenario flow', () => {
         issues: [{ severity: 'warning', category: 'npc', targetIds: ['npc-1'], message: '神主の口調が不安定', suggestion: '丁寧語に統一' }, { message: '' }]
       }))
 
-    const executor = new TRPGScenarioFlowExecutor({ provider: 'anthropic', model: 'claude-opus-5', temperature: 0.8, maxTokens: 1000 })
+    const onUsage = jest.fn()
+    const executor = new TRPGScenarioFlowExecutor(
+      { provider: 'anthropic', model: 'claude-opus-5', temperature: 0.8, maxTokens: 1000 },
+      { onUsage }
+    )
     const engine = new FlowEngine(trpgScenarioFlow, executor)
     executor.setFlowEngine(engine)
     const completed: string[] = []
@@ -262,6 +266,9 @@ describe('TRPG scenario flow', () => {
       'design-endings', 'validate-structure', 'repair-clues', 'finalize', 'review-content'
     ])
     expect(complete).toHaveBeenCalledTimes(8)
+    // 使用量は呼び出しごとに通知される（JSONの解析に失敗した呼び出しも含む）
+    expect(onUsage).toHaveBeenCalledTimes(8)
+    expect(onUsage.mock.calls[0][1]).toMatchObject({ provider: 'anthropic', model: 'claude-opus-5' })
     expect(patch.overview?.title).toBe('霧隠れ村')
     expect(patch.clues).toHaveLength(3)
     expect(patch.scenes?.[0].clueIds).toEqual(['clue-r1'])

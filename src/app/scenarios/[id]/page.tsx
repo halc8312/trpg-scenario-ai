@@ -30,6 +30,8 @@ import { ScenarioSection, TRPGScenario } from '@/lib/types'
 import { cn, saveTextToFile, saveToFile } from '@/lib/utils'
 import { useToast } from '@/lib/toast'
 import { AI_PROVIDERS } from '@/lib/ai/providers'
+import { AIProviderId } from '@/lib/ai/types'
+import { PRICING_CHANGED_EVENT, TokenUsage, addUsage, formatCost, formatTokens, loadJpyRate, loadModelPrices, summarizeUsage } from '@/lib/ai/usage'
 
 type TabId = 'overview' | 'pregens' | 'truth' | 'npcs' | 'clues' | 'scenes' | 'endings' | 'validation' | 'assistant' | 'session'
 
@@ -89,6 +91,22 @@ export default function TRPGScenarioPage({
       setStreamText(pendingStreamText.current)
     }, 100)
   }, [])
+  // 料金表が変わったら概算料金を再計算する
+  const [, setPricingVersion] = useState(0)
+  useEffect(() => {
+    const handler = () => setPricingVersion(v => v + 1)
+    window.addEventListener(PRICING_CHANGED_EVENT, handler)
+    return () => window.removeEventListener(PRICING_CHANGED_EVENT, handler)
+  }, [])
+
+  // AIの使用量はストレージ上の最新値に加算して保存する（生成中の他の保存と競合しないように）
+  const recordUsage = useCallback((usage: TokenUsage | undefined, settings: { provider: AIProviderId; model: string }) => {
+    const latest = TRPGScenarioService.get(params.id)
+    if (!latest) return
+    const updated = TRPGScenarioService.update(params.id, { usage: addUsage(latest.usage, settings.provider, settings.model, usage) })
+    if (updated) setScenario(updated)
+  }, [params.id])
+
   const clearStream = useCallback(() => {
     if (streamTimer.current) clearTimeout(streamTimer.current)
     streamTimer.current = null
@@ -115,7 +133,7 @@ export default function TRPGScenarioPage({
     setActiveTab('overview')
     persist({ status: 'generating', lastError: undefined, generation: { completedSteps } })
 
-    const executor = new TRPGScenarioFlowExecutor(target.aiSettings, { onStream })
+    const executor = new TRPGScenarioFlowExecutor(target.aiSettings, { onStream, onUsage: recordUsage })
     const engine = new FlowEngine(trpgScenarioFlow, executor)
     executor.setFlowEngine(engine)
 
@@ -151,7 +169,7 @@ export default function TRPGScenarioPage({
       setIsGenerating(false)
       clearStream()
     }
-  }, [persist, addToast, onStream, clearStream])
+  }, [persist, addToast, onStream, clearStream, recordUsage])
 
   useEffect(() => {
     let loaded = TRPGScenarioService.get(params.id)
@@ -180,7 +198,7 @@ export default function TRPGScenarioPage({
     if (!scenario) return
     setRegenerating(section)
     try {
-      const executor = new TRPGScenarioFlowExecutor(scenario.aiSettings, { onStream })
+      const executor = new TRPGScenarioFlowExecutor(scenario.aiSettings, { onStream, onUsage: recordUsage })
       const { patch, report } = await executor.regenerateSection(scenario, section, instruction.trim() || undefined)
       persist(patch)
       setInstruction('')
@@ -200,7 +218,7 @@ export default function TRPGScenarioPage({
     if (!scenario) return
     setReinforcing(true)
     try {
-      const executor = new TRPGScenarioFlowExecutor(scenario.aiSettings, { onStream })
+      const executor = new TRPGScenarioFlowExecutor(scenario.aiSettings, { onStream, onUsage: recordUsage })
       persist(await executor.reinforceClues(scenario))
       addToast('手がかりを補強しました', 'success')
     } catch (error: any) {
@@ -215,7 +233,7 @@ export default function TRPGScenarioPage({
     if (!scenario) return
     setReviewing(true)
     try {
-      const executor = new TRPGScenarioFlowExecutor(scenario.aiSettings, { onStream })
+      const executor = new TRPGScenarioFlowExecutor(scenario.aiSettings, { onStream, onUsage: recordUsage })
       persist({ review: await executor.reviewContent(scenario) })
       addToast('内容のチェックが完了しました', 'success')
     } catch (error: any) {
@@ -271,6 +289,7 @@ export default function TRPGScenarioPage({
   const hasContent = !!scenario.overview
   const isEditing = draft !== null
   const canResume = (scenario.generation?.completedSteps.length ?? 0) > 0
+  const usageSummary = summarizeUsage(scenario.usage, loadModelPrices())
   const busy = isGenerating || regenerating !== null || isEditing || reinforcing || reviewing
   const currentTab = TABS.find(t => t.id === activeTab)!
   const fileBase = title.replace(/[\\/:*?"<>|]/g, '_')
@@ -298,6 +317,13 @@ export default function TRPGScenarioPage({
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{title}</h1>
+            {usageSummary.calls > 0 && (
+              <p className="mt-1 text-xs text-gray-500" title="料金はAI設定の料金表をもとにした概算です">
+                AI使用量: {usageSummary.calls}回・入力 {formatTokens(usageSummary.inputTokens)} / 出力 {formatTokens(usageSummary.outputTokens)} トークン・
+                概算 {formatCost(usageSummary.costUsd, loadJpyRate())}
+                {usageSummary.incomplete && '（料金未設定のモデルや使用量不明の呼び出しを除く）'}
+              </p>
+            )}
             {scenario.overview?.tagline && (
               <p className="text-gray-600 dark:text-gray-400 mt-1">{scenario.overview.tagline}</p>
             )}
@@ -443,7 +469,9 @@ export default function TRPGScenarioPage({
                     disabled={busy}
                   />
                 )}
-                {activeTab === 'assistant' && <GMAssistantPanel scenario={scenario} />}
+                {activeTab === 'assistant' && (
+                  <GMAssistantPanel scenario={scenario} onUsage={usage => recordUsage(usage, scenario.aiSettings)} />
+                )}
                 {activeTab === 'session' && <SessionPanel scenario={scenario} onChange={session => persist({ session })} />}
               </>
             )}

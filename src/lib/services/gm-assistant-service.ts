@@ -1,4 +1,5 @@
 import { aiClient } from '@/lib/ai/client'
+import { TokenUsage } from '@/lib/ai/usage'
 import { AIMessage } from '@/lib/ai/types'
 import { GMChatMessage, TRPGScenario } from '@/lib/types'
 import { buildGMAssistantSystemPrompt } from './scenario-prompts'
@@ -14,7 +15,8 @@ export class GMAssistantService {
     scenario: TRPGScenario,
     history: GMChatMessage[],
     question: string,
-    onPartial?: (answerSoFar: string) => void
+    onPartial?: (answerSoFar: string) => void,
+    onUsage?: (usage: TokenUsage | undefined) => void
   ): Promise<string> {
     const messages: AIMessage[] = [
       { role: 'system', content: buildGMAssistantSystemPrompt(scenario) },
@@ -42,6 +44,7 @@ export class GMAssistantService {
         : {}
     )
 
+    onUsage?.(response.usage)
     return response.content.trim()
   }
 }
