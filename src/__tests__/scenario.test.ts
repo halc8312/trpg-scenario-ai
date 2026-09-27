@@ -284,7 +284,7 @@ describe('TRPG scenario flow', () => {
       .mockResolvedValueOnce(reply({ endings: [{ title: 'E' }] }))
       .mockRejectedValueOnce(new Error('rate limited'))
 
-    const executor = new TRPGScenarioFlowExecutor({ provider: 'deepseek', model: 'deepseek-chat', temperature: 0.8, maxTokens: 1000 })
+    const executor = new TRPGScenarioFlowExecutor({ provider: 'deepseek', model: 'deepseek-flash', temperature: 0.8, maxTokens: 1000 })
     const engine = new FlowEngine(trpgScenarioFlow, executor)
     executor.setFlowEngine(engine)
     const logs: string[] = []

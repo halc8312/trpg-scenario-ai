@@ -49,7 +49,7 @@ npm run dev                  # http://localhost:3000
 | OpenAI | `gpt-6-sol` | OpenAI SDK（Chat Completions） |
 | Claude | `claude-opus-5` | Anthropic SDK（ストリーミング、拒否時の自動フォールバック付き） |
 | Gemini | `gemini-3.8-flash` | Gemini の OpenAI 互換エンドポイント |
-| DeepSeek | `deepseek-chat` | DeepSeek の OpenAI 互換エンドポイント |
+| DeepSeek | `deepseek-flash` | DeepSeek の OpenAI 互換エンドポイント |
 
 temperature を受け付けないモデル（OpenAI の推論モデル、新しい世代の Claude など）には自動的に送らないようになっています。
 

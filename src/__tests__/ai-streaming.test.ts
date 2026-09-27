@@ -26,7 +26,7 @@ function responseFrom(chunks: string[]): Response {
 const request = (body: unknown) =>
   new NextRequest('http://localhost/api/ai/complete', { method: 'POST', body: JSON.stringify(body) })
 
-const validBody = { provider: 'deepseek', model: 'deepseek-chat', messages: [{ role: 'user', content: 'hi' }] }
+const validBody = { provider: 'deepseek', model: 'deepseek-flash', messages: [{ role: 'user', content: 'hi' }] }
 
 describe('readStream', () => {
   it('handles events split across chunk boundaries and multibyte characters', async () => {

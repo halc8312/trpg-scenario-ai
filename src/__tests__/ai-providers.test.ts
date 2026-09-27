@@ -105,7 +105,7 @@ describe('OpenAICompatibleAdapter', () => {
       maxTemperature: 2,
       supportsStreamUsage: true
     })
-    await adapter.complete(baseRequest({ provider: 'deepseek', model: 'deepseek-chat', temperature: 5 }))
+    await adapter.complete(baseRequest({ provider: 'deepseek', model: 'deepseek-flash', temperature: 5 }))
 
     const params = openaiCreate.mock.calls[0][0]
     expect(params.max_tokens).toBe(1000)
@@ -134,7 +134,7 @@ describe('OpenAICompatibleAdapter streaming', () => {
     )
     const adapter = new OpenAICompatibleAdapter({ provider: 'deepseek', apiKey: 'k', tokenParam: 'max_tokens', maxTemperature: 2, supportsStreamUsage: true })
     const deltas: string[] = []
-    const res = await adapter.complete(baseRequest({ provider: 'deepseek', model: 'deepseek-chat' }), d => deltas.push(d))
+    const res = await adapter.complete(baseRequest({ provider: 'deepseek', model: 'deepseek-flash' }), d => deltas.push(d))
 
     const params = openaiCreate.mock.calls[0][0]
     expect(params.stream).toBe(true)

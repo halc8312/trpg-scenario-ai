@@ -56,9 +56,10 @@ export const AI_PROVIDERS: Record<AIProviderId, AIProviderInfo> = {
     name: 'DeepSeek',
     apiKeyEnv: 'DEEPSEEK_API_KEY',
     modelEnv: 'DEEPSEEK_MODEL',
-    defaultModel: 'deepseek-chat',
-    suggestedModels: ['deepseek-chat', 'deepseek-reasoner'],
-    defaultMaxTokens: 8192,
+    // deepseek-chat / deepseek-reasoner は2026年7月24日に廃止された
+    defaultModel: 'deepseek-flash',
+    suggestedModels: ['deepseek-flash', 'deepseek-v4-pro'],
+    defaultMaxTokens: 32000,
     maxTemperature: 2,
     consoleUrl: 'https://platform.deepseek.com/api_keys'
   }
