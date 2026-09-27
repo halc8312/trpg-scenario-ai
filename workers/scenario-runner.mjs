@@ -1,4 +1,5 @@
-// Render Cron: once a minute, drain queued steps, then exit. No dependencies.
+// Optional manual recovery utility. Normal hosted generation uses QStash.
+// Do not configure a paid scheduler; see docs/BACKGROUND_GENERATION.md.
 // DeepSeek keys and scenario contents remain in the private Sites app.
 const origin = process.env.SITE_ORIGIN
 const siteToken = process.env.SITES_AUTH_TOKEN
