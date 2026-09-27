@@ -2,7 +2,7 @@ import { AIProviderId } from '@/lib/ai/types'
 
 // TRPGシナリオの型定義
 
-export type TRPGSystemId = 'coc7' | 'dnd5e' | 'sw25' | 'generic'
+export type TRPGSystemId = 'coc7' | 'dnd5e' | 'sw25' | 'emoklore' | 'shinobigami' | 'dx3' | 'insane' | 'generic'
 
 export type ScenarioDifficulty = 'easy' | 'normal' | 'hard' | 'deadly'
 
