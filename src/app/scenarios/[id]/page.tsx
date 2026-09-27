@@ -69,6 +69,7 @@ export default function TRPGScenarioPage({
   const [logs, setLogs] = useState<GenerationLog[]>([])
   // 手動編集中の下書き（null のときは閲覧モード）
   const [draft, setDraft] = useState<TRPGScenario | null>(null)
+  const [reinforcing, setReinforcing] = useState(false)
   const autostartHandled = useRef(false)
 
   const persist = useCallback((updates: Partial<TRPGScenario>) => {
@@ -146,14 +147,31 @@ export default function TRPGScenarioPage({
     setRegenerating(section)
     try {
       const executor = new TRPGScenarioFlowExecutor(scenario.aiSettings)
-      const patch = await executor.regenerateSection(scenario, section, instruction.trim() || undefined)
+      const { patch, report } = await executor.regenerateSection(scenario, section, instruction.trim() || undefined)
       persist(patch)
       setInstruction('')
-      addToast(`${SECTION_LABELS[section]}を再生成しました`, 'success')
+      const repaired = report.remapped || report.removed
+        ? `（参照を${report.remapped}件付け替え、${report.removed}件の無効な参照を削除）`
+        : ''
+      addToast(`${SECTION_LABELS[section]}を再生成しました${repaired}`, 'success')
     } catch (error: any) {
       addToast(error?.message || '再生成に失敗しました', 'error')
     } finally {
       setRegenerating(null)
+    }
+  }
+
+  const handleReinforce = async () => {
+    if (!scenario) return
+    setReinforcing(true)
+    try {
+      const executor = new TRPGScenarioFlowExecutor(scenario.aiSettings)
+      persist(await executor.reinforceClues(scenario))
+      addToast('手がかりを補強しました', 'success')
+    } catch (error: any) {
+      addToast(error?.message || '手がかりの補強に失敗しました', 'error')
+    } finally {
+      setReinforcing(false)
     }
   }
 
@@ -201,7 +219,7 @@ export default function TRPGScenarioPage({
   const title = scenario.overview?.title || scenario.request.workingTitle || '（タイトル未定）'
   const hasContent = !!scenario.overview
   const isEditing = draft !== null
-  const busy = isGenerating || regenerating !== null || isEditing
+  const busy = isGenerating || regenerating !== null || isEditing || reinforcing
   const currentTab = TABS.find(t => t.id === activeTab)!
   const fileBase = title.replace(/[\\/:*?"<>|]/g, '_')
 
@@ -348,7 +366,14 @@ export default function TRPGScenarioPage({
                 {activeTab === 'clues' && <CluesSection scenario={scenario} />}
                 {activeTab === 'scenes' && <ScenesSection scenario={scenario} />}
                 {activeTab === 'endings' && <EndingsSection scenario={scenario} />}
-                {activeTab === 'validation' && <ValidationSection scenario={scenario} />}
+                {activeTab === 'validation' && (
+                  <ValidationSection
+                    scenario={scenario}
+                    onReinforce={handleReinforce}
+                    isReinforcing={reinforcing}
+                    disabled={busy}
+                  />
+                )}
                 {activeTab === 'assistant' && <GMAssistantPanel scenario={scenario} />}
               </>
             )}
@@ -376,7 +401,7 @@ export default function TRPGScenarioPage({
                   </Button>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  他のセクションはそのまま残ります。IDの参照がずれた場合は「検証」タブで確認できます。
+                  他のセクションはそのまま残ります。名前が同じ要素への参照は自動で付け替え、なくなった要素への参照は外します。
                 </p>
               </div>
             )}

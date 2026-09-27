@@ -371,7 +371,13 @@ const SEVERITY_STYLES: Record<ScenarioIssueSeverity, { label: string; className:
   info: { label: '情報', className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }
 }
 
-export function ValidationSection({ scenario }: SectionProps) {
+interface ValidationSectionProps extends SectionProps {
+  onReinforce?: () => void
+  isReinforcing?: boolean
+  disabled?: boolean
+}
+
+export function ValidationSection({ scenario, onReinforce, isReinforcing, disabled }: ValidationSectionProps) {
   const report = scenario.validation
   if (!report) return <Empty>検証はまだ実行されていません。</Empty>
 
@@ -390,6 +396,21 @@ export function ValidationSection({ scenario }: SectionProps) {
           </div>
         </div>
       </Card>
+      {report.needsRepair && onReinforce && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/30 px-4 py-3">
+          <p className="flex-grow text-sm text-amber-800 dark:text-amber-200">
+            手がかりが足りない重要情報が{report.revelationsNeedingClues.length}件あります。AIに別ルートの手がかりを追加させられます。
+          </p>
+          <button
+            type="button"
+            className="shrink-0 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+            onClick={onReinforce}
+            disabled={disabled}
+          >
+            {isReinforcing ? '補強中…' : 'AIで手がかりを補強'}
+          </button>
+        </div>
+      )}
       <Card title={`検出された項目（${report.issues.length}件）`}>
         {report.issues.length === 0 ? (
           <Empty>問題は見つかりませんでした。</Empty>

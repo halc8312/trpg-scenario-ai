@@ -30,6 +30,7 @@ import {
   normalizeTruth
 } from './scenario-normalizer'
 import { ScenarioValidator } from './scenario-validator'
+import { ReferenceRepairReport, existingIdHint, repairAfterRegeneration } from './reference-repair'
 
 // フローのコンテキストのうち、シナリオとして保存するキー
 const SCENARIO_CONTEXT_KEYS = [
@@ -98,15 +99,21 @@ export class TRPGScenarioFlowExecutor implements FlowExecutor {
   }
 
   /**
-   * 既存シナリオの一部だけを作り直す。他のセクションはそのまま使い、検証結果も更新する。
+   * 既存シナリオの一部だけを作り直す。他のセクションはそのまま使い、
+   * IDが変わった要素への参照を張り直してから検証をやり直す。
    */
   async regenerateSection(
     scenario: TRPGScenario,
     section: ScenarioSection,
     instruction?: string
-  ): Promise<Partial<TRPGScenario>> {
+  ): Promise<{ patch: Partial<TRPGScenario>; report: ReferenceRepairReport }> {
     const context = scenarioToContext(scenario)
-    const promptContext: ScenarioPromptContext = { ...context, request: scenario.request, instruction }
+    const combinedInstruction = [instruction, existingIdHint(scenario, section)].filter(Boolean).join('\n\n')
+    const promptContext: ScenarioPromptContext = {
+      ...context,
+      request: scenario.request,
+      instruction: combinedInstruction || undefined
+    }
 
     let result: FlowContext
     switch (section) {
@@ -127,8 +134,30 @@ export class TRPGScenarioFlowExecutor implements FlowExecutor {
         break
     }
 
-    const merged = { ...context, ...result }
-    return { ...contextToScenarioPatch(result), ...this.validate(merged) }
+    const regenerated = { ...scenario, ...contextToScenarioPatch(result) }
+    const { scenario: repaired, report } = repairAfterRegeneration(scenario, regenerated, section)
+    if (report.remapped || report.removed) {
+      this.log(`参照を${report.remapped}件付け替え、無効な参照を${report.removed}件取り除きました`)
+    }
+
+    const patch: Partial<TRPGScenario> = {
+      ...contextToScenarioPatch(result),
+      clues: repaired.clues,
+      scenes: repaired.scenes
+    }
+    return { patch: { ...patch, ...this.validate({ ...repaired, request: scenario.request }) }, report }
+  }
+
+  /**
+   * 検証で手がかり不足と判定された重要情報に、手がかりを追加する。
+   */
+  async reinforceClues(scenario: TRPGScenario): Promise<Partial<TRPGScenario>> {
+    const context = scenarioToContext(scenario)
+    const validation = ScenarioValidator.validate(scenario)
+    if (!validation.needsRepair) return { validation }
+
+    const result = await this.repairClues({ ...context, request: scenario.request }, validation.revelationsNeedingClues)
+    return { ...result, ...this.validate({ ...context, ...result }) }
   }
 
   private async designConcept(ctx: ScenarioPromptContext): Promise<FlowContext> {

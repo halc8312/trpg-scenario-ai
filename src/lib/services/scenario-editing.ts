@@ -1,14 +1,15 @@
 import { TRPGScenario } from '@/lib/types'
 import { ScenarioValidator } from './scenario-validator'
+import { repairReferences } from './reference-repair'
 
 const trimList = (list: string[] | undefined): string[] => (list ?? []).map(s => s.trim()).filter(Boolean)
 
 /**
  * 手動編集した内容を保存できる形に整え、検証をやり直す。
- * 入力途中で残った空行や空白を取り除く。
+ * 入力途中で残った空行や空白を取り除き、削除された要素への参照を外す。
  */
 export function finalizeEdits(draft: TRPGScenario): Partial<TRPGScenario> {
-  const scenario: TRPGScenario = {
+  const cleaned: TRPGScenario = {
     ...draft,
     overview: draft.overview && { ...draft.overview, recommendedSkills: trimList(draft.overview.recommendedSkills) },
     npcs: draft.npcs.map(n => ({ ...n, dialogueExamples: trimList(n.dialogueExamples) })),
@@ -26,6 +27,7 @@ export function finalizeEdits(draft: TRPGScenario): Partial<TRPGScenario> {
       rescueMeasures: trimList(draft.gmGuide.rescueMeasures)
     }
   }
+  const { scenario } = repairReferences(cleaned)
 
   return {
     overview: scenario.overview,
