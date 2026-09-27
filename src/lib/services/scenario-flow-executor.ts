@@ -54,7 +54,8 @@ export function scenarioToContext(scenario: TRPGScenario): FlowContext {
     clues: scenario.clues,
     scenes: scenario.scenes,
     endings: scenario.endings,
-    gmGuide: scenario.gmGuide
+    gmGuide: scenario.gmGuide,
+    validation: scenario.validation
   }
 }
 
@@ -62,7 +63,7 @@ export class TRPGScenarioFlowExecutor implements FlowExecutor {
   private aiSettings: ScenarioAISettings
   private flowEngine?: FlowEngine
 
-  constructor(aiSettings: ScenarioAISettings) {
+  constructor(aiSettings: ScenarioAISettings, private completeAI: typeof aiClient.complete = aiClient.complete) {
     this.aiSettings = aiSettings
   }
 
@@ -219,12 +220,14 @@ export class TRPGScenarioFlowExecutor implements FlowExecutor {
 
     // JSONの解析に失敗した場合は1回だけ再試行する
     for (let attempt = 1; attempt <= 2; attempt++) {
-      const response = await aiClient.complete({
+      const response = await this.completeAI({
         provider: this.aiSettings.provider,
         model: this.aiSettings.model,
         messages,
         temperature,
         maxTokens: this.aiSettings.maxTokens
+      }, {
+        onRetry: attempt => this.log(`通信が中断されました。画面に戻ってから再試行します（${attempt}/2）`, 'warning')
       })
 
       const parsed = extractJSON(response.content)

@@ -32,3 +32,9 @@ APIキーをチャット本文やリポジトリへ貼り付けないでくだ�
 2026年9月27日確認時点のFlash系API名は `deepseek-flash`（DeepSeek V4.1 Flash）です。旧名 `deepseek-chat` / `deepseek-reasoner` / `deepseek-v4-flash` は読み込み・送信時に新しい名前へ置き換えます。シナリオ生成は非思考モード（`reasoning_effort: "none"`）を使用します。
 
 公式資料: https://api-docs.deepseek.com/updates/ 、https://api-docs.deepseek.com/api/create-chat-completion/
+
+## 中断と再開
+
+生成中は完了したセクションと次の工程を保存します。通信が切れた場合は最大2回だけ再試行し、復帰時には前面表示・オンラインを待ちます。停止後は「続きから生成」で再開できます。以前のバージョンで保存された `design-locations-clues` のエラーも、概要・NPCを使って場所・手がかりから再開します。
+
+バックグラウンド実行用の進捗保存・サーバー処理・Render実行コードを準備しています。追加環境を設定するまで無効です。詳細は `docs/BACKGROUND_GENERATION.md` を参照してください。有効時は生成中のシナリオと進捗もD1に保存し、画面を開き直すと取得します。

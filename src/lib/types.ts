@@ -194,6 +194,9 @@ export interface TRPGScenario {
   gmGuide?: ScenarioGMGuide
   validation?: ScenarioValidationReport
   lastError?: string
+  // Next unfinished step; saved together with each completed section.
+  generationStep?: string
+  generationJobId?: string
   createdAt: Date
   updatedAt: Date
   history?: ScenarioRevision[]

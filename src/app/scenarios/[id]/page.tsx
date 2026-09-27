@@ -25,6 +25,7 @@ import { ScenarioValidator } from '@/lib/services/scenario-validator'
 import { validateScenarioImport } from '@/lib/services/scenario-import-validator'
 import { ScenarioExporter } from '@/lib/services/scenario-exporter'
 import { TRPGScenarioService } from '@/lib/services/scenario-service'
+import { freshGenerationPatch, getScenarioResumePlan } from '@/lib/services/scenario-resume'
 import { ScenarioSection, TRPGScenario } from '@/lib/types'
 import { cn, saveTextToFile, saveToFile } from '@/lib/utils'
 import { useToast } from '@/lib/toast'
@@ -51,12 +52,8 @@ const SECTION_LABELS: Record<ScenarioSection, string> = {
   endings: 'エンディングとガイド'
 }
 
-export default function TRPGScenarioPage({
-  params,
-  searchParams
-}: {
-  params: { id: string }
-  searchParams: { autostart?: string }
+export default function TRPGScenarioPage({ params, searchParams }: {
+  params: { id: string }; searchParams: { autostart?: string }
 }) {
   const router = useRouter()
   const { addToast } = useToast()
@@ -71,6 +68,8 @@ export default function TRPGScenarioPage({
   const [stepStatuses, setStepStatuses] = useState<Record<string, StepStatus>>({})
   const [logs, setLogs] = useState<GenerationLog[]>([])
   const autostartHandled = useRef(false)
+  const generationRunning = useRef(false)
+
 
   const persist = useCallback((updates: Partial<TRPGScenario>) => {
     const updated = TRPGScenarioService.update(params.id, updates)
@@ -78,31 +77,39 @@ export default function TRPGScenarioPage({
     return updated
   }, [params.id])
 
-  const runGeneration = useCallback(async (target: TRPGScenario) => {
+  const runGeneration = useCallback(async (target: TRPGScenario, resume = false) => {
+    if (generationRunning.current) return
+    generationRunning.current = true
+    const plan = resume ? getScenarioResumePlan(target) : undefined
     setIsGenerating(true)
-    setLogs([])
-    setStepStatuses({})
+    setLogs(plan ? [{ message: '保存済みの内容を使って、続きから生成します。', type: 'info' }] : [])
+    setStepStatuses(Object.fromEntries((plan?.completedStepIds ?? []).map(id => [id, 'done' as const])))
     setActiveTab('overview')
 
     const executor = new TRPGScenarioFlowExecutor(target.aiSettings)
     const engine = new FlowEngine(trpgScenarioFlow, executor)
     executor.setFlowEngine(engine)
 
-    engine.on('stepStart', step => setStepStatuses(prev => ({ ...prev, [step.id]: 'running' })))
+    engine.on('stepStart', step => {
+      persist({ generationStep: step.id })
+      setStepStatuses(prev => ({ ...prev, [step.id]: 'running' }))
+    })
     engine.on('stepComplete', step => {
       setStepStatuses(prev => ({ ...prev, [step.id]: 'done' }))
       // 途中で失敗しても完成済みのセクションは残るよう、ステップごとに保存する
-      persist(contextToScenarioPatch(engine.getContext()))
+      persist({ ...contextToScenarioPatch(engine.getContext()), generationStep: step.nextSteps[0] })
     })
     engine.on('stepError', step => setStepStatuses(prev => ({ ...prev, [step.id]: 'error' })))
     engine.on('log', (message, type = 'info') => setLogs(prev => [...prev, { message, type }]))
 
     try {
-      if (target.overview) {
-        const saved = TRPGScenarioService.updateWithHistory(params.id, { status: 'generating', lastError: undefined }, '全体再生成前')
+      if (plan) {
+        persist({ status: 'generating', lastError: undefined, generationStep: plan.startStepId })
+      } else if (target.overview) {
+        const saved = TRPGScenarioService.updateWithHistory(params.id, freshGenerationPatch(), '全体再生成前')
         if (saved) setScenario(saved)
-      } else persist({ status: 'generating', lastError: undefined })
-      const context = await engine.execute({ request: target.request })
+      } else persist(freshGenerationPatch())
+      const context = await engine.execute(plan?.context ?? { request: target.request }, plan?.startStepId)
       // 条件を満たさず実行されなかったステップ
       setStepStatuses(prev => {
         const next = { ...prev }
@@ -110,15 +117,16 @@ export default function TRPGScenarioPage({
         return next
       })
       const needsReview = context.validation.issues.some((issue: { severity: string }) => issue.severity !== 'info')
-      persist({ ...contextToScenarioPatch(context), status: needsReview ? 'review' : 'complete' })
+      persist({ ...contextToScenarioPatch(context), status: needsReview ? 'review' : 'complete', generationStep: undefined, lastError: undefined })
       addToast(needsReview ? '生成が終わりました。検証で見つかった項目を確認してください' : 'シナリオを生成しました', needsReview ? 'info' : 'success')
     } catch (error: any) {
       console.error('Scenario generation failed:', error)
       const message = error?.message || 'シナリオの生成に失敗しました'
       setLogs(prev => [...prev, { message, type: 'error' }])
       persist({ status: 'error', lastError: message })
-      addToast('シナリオの生成に失敗しました', 'error')
+      addToast('生成が止まりました。保存済みの続きから再開できます', 'error')
     } finally {
+      generationRunning.current = false
       setIsGenerating(false)
     }
   }, [persist, addToast, params.id])
@@ -131,10 +139,10 @@ export default function TRPGScenarioPage({
     }
 
     // ページ遷移などで中断された生成はエラーとして扱う
-    if (loaded.status === 'generating' && !autostartHandled.current) {
+    if (loaded.status === 'generating' && !generationRunning.current) {
       loaded = TRPGScenarioService.update(params.id, {
         status: 'error',
-        lastError: '生成が中断されました。もう一度生成してください。'
+        lastError: '生成が中断されました。「続きから生成」で再開できます。'
       }) ?? loaded
     }
     setScenario(loaded)
@@ -231,8 +239,10 @@ export default function TRPGScenarioPage({
                 </Button>
               </>
             )}
+            {scenario.status === 'error' && <Button size="sm" disabled={busy} onClick={() => runGeneration(scenario, true)}>続きから生成</Button>}
             <Button
               size="sm"
+              variant={scenario.status === 'error' ? 'secondary' : 'primary'}
               disabled={busy}
               onClick={() => {
                 if (!hasContent || confirm('シナリオ全体を作り直します。現在の内容は上書きされます。よろしいですか？')) {
@@ -275,6 +285,7 @@ export default function TRPGScenarioPage({
           <div className="mb-6 rounded-md border border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-900/30 px-4 py-3 text-sm text-red-700 dark:text-red-200">
             {scenario.lastError || 'シナリオの生成に失敗しました。'}
             {hasContent && ' 生成済みのセクションは保存されています。'}
+            <p className="mt-2">「続きから生成」で、保存済みの内容を使って再開できます。</p>
           </div>
         )}
 
@@ -375,4 +386,3 @@ export default function TRPGScenarioPage({
     </div>
   )
 }
-

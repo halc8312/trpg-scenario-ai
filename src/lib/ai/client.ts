@@ -1,4 +1,5 @@
 import { AICompletionRequest, AICompletionResponse, AIProviderId, AIProviderStatus } from './types'
+import { NetworkRecoveryOptions, withNetworkRecovery } from './network-recovery'
 
 // ブラウザからサーバーのAPIルート経由でAIを呼び出す
 
@@ -12,14 +13,16 @@ async function parseError(response: Response): Promise<Error> {
 }
 
 export const aiClient = {
-  async complete(request: AICompletionRequest): Promise<AICompletionResponse> {
-    const response = await fetch('/api/ai/complete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request)
-    })
-    if (!response.ok) throw await parseError(response)
-    return response.json()
+  async complete(request: AICompletionRequest, options?: NetworkRecoveryOptions): Promise<AICompletionResponse> {
+    return withNetworkRecovery(async () => {
+      const response = await fetch('/api/ai/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request)
+      })
+      if (!response.ok) throw await parseError(response)
+      return response.json() as Promise<AICompletionResponse>
+    }, options)
   },
 
   async getProviders(): Promise<AIProviderStatus[]> {
@@ -36,4 +39,3 @@ export const aiClient = {
     return body.models
   }
 }
-
