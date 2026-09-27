@@ -14,6 +14,8 @@ export interface GameSystemPreset {
   pcStatFormat: string
   enemyStatFormat: string
   rewardGuidelines: string
+  // セッション画面のダイスローラーに並べるよく使う表記
+  dicePresets: string[]
   defaultGenres: string[]
   designNotes: string
 }
@@ -37,6 +39,7 @@ export const GAME_SYSTEMS: Record<TRPGSystemId, GameSystemPreset> = {
     pcStatFormat: '職業、年齢、STR / CON / SIZ / DEX / APP / INT / POW / EDU、耐久力 / MP / 正気度 / 幸運、ダメージ・ボーナス',
     enemyStatFormat: 'STR / CON / SIZ / DEX / POW、耐久力、装甲、攻撃（技能値% / ダメージ）、正気度喪失、特殊能力',
     rewardGuidelines: '正気度の回復（1D6〜1D10など）、クトゥルフ神話技能の獲得、関係者からの謝礼や情報',
+    dicePresets: ['CC<=50', '1D100', '1D3', '1D6', '1D10'],
     defaultGenres: ['ホラー', '現代ミステリー', '1920年代', 'クローズドサークル'],
     designNotes:
       '探索者は戦闘に弱い前提で、真相へ到達すること・生還することが目的になる構成が望ましい。神話的存在との直接戦闘は避けられる、または回避手段がある設計にする。'
@@ -58,6 +61,7 @@ export const GAME_SYSTEMS: Record<TRPGSystemId, GameSystemPreset> = {
     pcStatFormat: '種族、クラスとレベル、背景、能力値（筋/敏/耐/知/判/魅）、AC、hp、習熟ボーナス、主な攻撃・呪文',
     enemyStatFormat: 'AC、hp、移動速度、能力値、攻撃（命中ボーナス / ダメージ）、特殊能力、脅威度（CR）',
     rewardGuidelines: '経験点（遭遇の脅威度に基づく）またはマイルストーン成長、金貨、魔法のアイテム',
+    dicePresets: ['1D20', '1D20+5', '2D6', '1D8+3', '4D6'],
     defaultGenres: ['ハイファンタジー', 'ダンジョン探索', '冒険', '政治陰謀'],
     designNotes:
       '戦闘・探索・交流の3本柱をバランスよく配置する。遭遇の難易度はパーティのレベルと人数を考慮し、休息のタイミングも想定する。'
@@ -79,6 +83,7 @@ export const GAME_SYSTEMS: Record<TRPGSystemId, GameSystemPreset> = {
     pcStatFormat: '種族、生まれ、技能とレベル（例: ファイター2 / スカウト1）、能力値（器用度〜精神力）、HP / MP、生命抵抗力 / 精神抵抗力、戦闘特技',
     enemyStatFormat: 'レベル、知名度/弱点値、命中力、打撃点、回避力、防護点、HP、MP、特殊能力、戦利品',
     rewardGuidelines: '経験点（基本 + 倒した魔物のレベル合計×10）、報酬（ガメル）、名誉点、剥ぎ取りによる戦利品',
+    dicePresets: ['2D6', '2D6+5', '1D6', '2D6>=10'],
     defaultGenres: ['冒険者の依頼', '遺跡探索', '蛮族との戦い', 'ファンタジー'],
     designNotes:
       '冒険者の宿で依頼を受ける導入が定番。依頼人・報酬・目的地を明確にし、魔物との戦闘と探索判定による情報収集を組み合わせる。'
@@ -100,6 +105,7 @@ export const GAME_SYSTEMS: Record<TRPGSystemId, GameSystemPreset> = {
     pcStatFormat: '能力値（身体・器用・精神・五感・知力・魅力・社会・運勢）、HP（身体+10）、MP（精神+知力）、共鳴感情（表・裏・ルーツ）、主な技能とレベル',
     enemyStatFormat: '《怪異》の名前と正体、HP、攻撃手段（判定とダメージ）、共鳴する感情、特殊な性質・弱点',
     rewardGuidelines: '成長点、〈∞共鳴〉の変化、《怪異》にまつわるアイテムや記憶',
+    dicePresets: ['1DM<=5', '2DM<=6', '3DM<=7', '1D10'],
     defaultGenres: ['現代怪異譚', 'ホラー', 'ミステリー', 'エモーショナル'],
     designNotes:
       '現代を舞台に、人の感情と結びついた《怪異》を扱う。探索と感情のドラマが中心で、《怪異》は倒すより「感情を理解して向き合う」解決も用意すると良い。〈∞共鳴〉が上がりすぎるとPCが逸脱するため、共鳴判定の回数は抑えめにする。'
@@ -121,6 +127,7 @@ export const GAME_SYSTEMS: Record<TRPGSystemId, GameSystemPreset> = {
     pcStatFormat: '流派、階級、信念、特技（6つ）、忍法、背景、生命力6（器術〜妖術）',
     enemyStatFormat: '流派、主な特技、忍法（攻撃・サポート）、奥義、生命力、戦闘時の行動方針',
     rewardGuidelines: '功績点（使命の達成、秘密の獲得、戦果など）',
+    dicePresets: ['2D6>=5', '2D6>=6', '1D6', '2D6'],
     defaultGenres: ['忍術バトル', '陰謀', '伝奇', '現代忍者'],
     designNotes:
       'PCごとに「使命」と「秘密」を書いたハンドアウトを用意し、PC同士の対立や協力が生まれるように設計する。セッションはドラマシーンでの情報収集・感情判定を数サイクル行い、最後にクライマックス戦闘で決着をつける構成が基本。秘密には他のPCの使命を揺るがす事実を仕込む。'
@@ -139,6 +146,7 @@ export const GAME_SYSTEMS: Record<TRPGSystemId, GameSystemPreset> = {
     pcStatFormat: 'ワークス、カヴァー、シンドローム、能力値（肉体・感覚・精神・社会）、主な技能、HP、行動値、侵蝕基本値、主なエフェクト',
     enemyStatFormat: 'シンドローム、HP、行動値、装甲、主なエフェクトとコンボ（命中判定・ダメージ）、Eロイス、戦闘時の行動方針',
     rewardGuidelines: '経験点（セッションに最後まで参加、目的の達成、侵蝕率による経験点、Sロイスなど）',
+    dicePresets: ['3DX+1', '4DX+2@9', '5DX+3@8', '2D10'],
     defaultGenres: ['現代異能アクション', 'UGN', 'FH陰謀', '学園'],
     designNotes:
       'トレーラーとPCごとのハンドアウト（シナリオロイス、カヴァー/ワークスの指定）を用意し、オープニング→ミドル（情報収集・トリガーシーン）→クライマックス（戦闘）→エンディングの順に構成する。能力を使うほど侵蝕率が上がるため、ミドルの登場・戦闘回数を抑え、クライマックスで全力を出せる余地を残す。'
@@ -160,6 +168,7 @@ export const GAME_SYSTEMS: Record<TRPGSystemId, GameSystemPreset> = {
     pcStatFormat: '職業、好奇心（分野）、恐怖心（特技）、特技（6つ）、アビリティ、生命力、正気度、アイテム',
     enemyStatFormat: '怪異の正体、生命力、攻撃（アビリティ・指定特技・ダメージ）、恐怖判定の指定特技、弱点',
     rewardGuidelines: '功績点、正気度の回復、生還そのもの',
+    dicePresets: ['2D6>=5', '2D6>=6', '1D6', '2D6'],
     defaultGenres: ['現代ホラー', '都市伝説', 'サイコホラー', '学校の怪談'],
     designNotes:
       'PCごとに「使命」と「秘密」を書いたハンドアウトを用意する。秘密には恐ろしい真実や他のPCへの疑念を仕込み、PC同士の疑心暗鬼を生む。ドラマシーンでの調査と感情判定を繰り返し、狂気カードが発狂するタイミングで恐怖を演出する。'
@@ -178,6 +187,7 @@ export const GAME_SYSTEMS: Record<TRPGSystemId, GameSystemPreset> = {
     pcStatFormat: '得意分野、能力の目安（身体・知性・社交・特殊の4項目を5段階）、特技',
     enemyStatFormat: '強さの目安、攻撃手段、防御の特徴、弱点、特殊能力',
     rewardGuidelines: '物語上の報酬（情報・人脈・アイテム）とシステムに応じた成長点',
+    dicePresets: ['1D6', '2D6', '1D20', '1D100'],
     defaultGenres: ['ファンタジー', 'SF', '現代異能', 'ミステリー', 'ホラー'],
     designNotes: '特定のルールに依存しない書き方にし、どのシステムにもコンバートしやすい記述にする。'
   }

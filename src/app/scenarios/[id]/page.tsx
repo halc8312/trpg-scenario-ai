@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button'
 import GenerationProgress, { GenerationLog, StepStatus } from '@/components/scenario/GenerationProgress'
 import GMAssistantPanel from '@/components/scenario/GMAssistantPanel'
 import ScenarioEditor, { EditableTab } from '@/components/editor/ScenarioEditor'
+import SessionPanel from '@/components/session/SessionPanel'
 import {
   CluesSection,
   EndingsSection,
@@ -30,7 +31,7 @@ import { cn, saveTextToFile, saveToFile } from '@/lib/utils'
 import { useToast } from '@/lib/toast'
 import { AI_PROVIDERS } from '@/lib/ai/providers'
 
-type TabId = 'overview' | 'pregens' | 'truth' | 'npcs' | 'clues' | 'scenes' | 'endings' | 'validation' | 'assistant'
+type TabId = 'overview' | 'pregens' | 'truth' | 'npcs' | 'clues' | 'scenes' | 'endings' | 'validation' | 'assistant' | 'session'
 
 const TABS: { id: TabId; label: string; section?: ScenarioSection; editable?: boolean }[] = [
   { id: 'overview', label: '概要', section: 'concept', editable: true },
@@ -41,7 +42,8 @@ const TABS: { id: TabId; label: string; section?: ScenarioSection; editable?: bo
   { id: 'scenes', label: 'シーン', section: 'scenes', editable: true },
   { id: 'endings', label: 'エンディング', section: 'endings', editable: true },
   { id: 'validation', label: '検証' },
-  { id: 'assistant', label: 'GM相談' }
+  { id: 'assistant', label: 'GM相談' },
+  { id: 'session', label: 'セッション' }
 ]
 
 const SECTION_LABELS: Record<ScenarioSection, string> = {
@@ -442,6 +444,7 @@ export default function TRPGScenarioPage({
                   />
                 )}
                 {activeTab === 'assistant' && <GMAssistantPanel scenario={scenario} />}
+                {activeTab === 'session' && <SessionPanel scenario={scenario} onChange={session => persist({ session })} />}
               </>
             )}
 

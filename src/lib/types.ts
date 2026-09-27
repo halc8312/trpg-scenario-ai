@@ -213,6 +213,26 @@ export interface ScenarioContentReview {
   model: string
 }
 
+export interface DiceLogEntry {
+  at: string
+  notation: string
+  total: number
+  detail: string
+  label?: string
+  outcome?: 'success' | 'failure' | 'critical' | 'fumble'
+}
+
+// セッション中の進行状況（GMの手元用）
+export interface ScenarioSessionState {
+  memo: string
+  diceLog: DiceLogEntry[]
+  foundClueIds: string[]
+  currentSceneId?: string
+  // 発生済みのタイムライン（countdown）の番号
+  countdownDone: number[]
+  timer: { startedAt?: number; elapsedMs: number }
+}
+
 export interface TRPGScenario {
   id: string
   status: ScenarioStatus
@@ -231,6 +251,7 @@ export interface TRPGScenario {
   review?: ScenarioContentReview
   // 生成フローで完了したステップ（途中再開に使う）
   generation?: { completedSteps: string[] }
+  session?: ScenarioSessionState
   lastError?: string
   createdAt: Date
   updatedAt: Date
