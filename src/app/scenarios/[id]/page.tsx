@@ -7,6 +7,7 @@ import Header from '@/components/layout/Header'
 import Button from '@/components/ui/Button'
 import GenerationProgress, { GenerationLog, StepStatus } from '@/components/scenario/GenerationProgress'
 import GMAssistantPanel from '@/components/scenario/GMAssistantPanel'
+import ScenarioEditor, { EditableTab } from '@/components/editor/ScenarioEditor'
 import {
   CluesSection,
   EndingsSection,
@@ -22,6 +23,7 @@ import { FlowEngine } from '@/lib/flow/flow-engine'
 import { TRPGScenarioFlowExecutor, contextToScenarioPatch } from '@/lib/services/scenario-flow-executor'
 import { ScenarioExporter } from '@/lib/services/scenario-exporter'
 import { TRPGScenarioService } from '@/lib/services/scenario-service'
+import { finalizeEdits } from '@/lib/services/scenario-editing'
 import { ScenarioSection, TRPGScenario } from '@/lib/types'
 import { cn, saveTextToFile, saveToFile } from '@/lib/utils'
 import { useToast } from '@/lib/toast'
@@ -29,13 +31,13 @@ import { AI_PROVIDERS } from '@/lib/ai/providers'
 
 type TabId = 'overview' | 'truth' | 'npcs' | 'clues' | 'scenes' | 'endings' | 'validation' | 'assistant'
 
-const TABS: { id: TabId; label: string; section?: ScenarioSection }[] = [
-  { id: 'overview', label: '概要', section: 'concept' },
-  { id: 'truth', label: '真相', section: 'concept' },
-  { id: 'npcs', label: 'NPC', section: 'npcs' },
-  { id: 'clues', label: '場所・手がかり', section: 'locationsAndClues' },
-  { id: 'scenes', label: 'シーン', section: 'scenes' },
-  { id: 'endings', label: 'エンディング', section: 'endings' },
+const TABS: { id: TabId; label: string; section?: ScenarioSection; editable?: boolean }[] = [
+  { id: 'overview', label: '概要', section: 'concept', editable: true },
+  { id: 'truth', label: '真相', section: 'concept', editable: true },
+  { id: 'npcs', label: 'NPC', section: 'npcs', editable: true },
+  { id: 'clues', label: '場所・手がかり', section: 'locationsAndClues', editable: true },
+  { id: 'scenes', label: 'シーン', section: 'scenes', editable: true },
+  { id: 'endings', label: 'エンディング', section: 'endings', editable: true },
   { id: 'validation', label: '検証' },
   { id: 'assistant', label: 'GM相談' }
 ]
@@ -65,6 +67,8 @@ export default function TRPGScenarioPage({
   const [instruction, setInstruction] = useState('')
   const [stepStatuses, setStepStatuses] = useState<Record<string, StepStatus>>({})
   const [logs, setLogs] = useState<GenerationLog[]>([])
+  // 手動編集中の下書き（null のときは閲覧モード）
+  const [draft, setDraft] = useState<TRPGScenario | null>(null)
   const autostartHandled = useRef(false)
 
   const persist = useCallback((updates: Partial<TRPGScenario>) => {
@@ -153,6 +157,32 @@ export default function TRPGScenarioPage({
     }
   }
 
+  // 編集中にページを離れようとしたら確認する
+  useEffect(() => {
+    if (!draft) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [draft])
+
+  const startEditing = () => {
+    if (scenario) setDraft(JSON.parse(JSON.stringify(scenario), reviveDate))
+  }
+
+  const saveEdits = () => {
+    if (!draft) return
+    persist(finalizeEdits(draft))
+    setDraft(null)
+    addToast('編集内容を保存しました', 'success')
+  }
+
+  const cancelEditing = () => {
+    if (confirm('編集内容を破棄しますか？')) setDraft(null)
+  }
+
   if (notFound) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
@@ -170,7 +200,8 @@ export default function TRPGScenarioPage({
   const system = getGameSystem(scenario.request.systemId)
   const title = scenario.overview?.title || scenario.request.workingTitle || '（タイトル未定）'
   const hasContent = !!scenario.overview
-  const busy = isGenerating || regenerating !== null
+  const isEditing = draft !== null
+  const busy = isGenerating || regenerating !== null || isEditing
   const currentTab = TABS.find(t => t.id === activeTab)!
   const fileBase = title.replace(/[\\/:*?"<>|]/g, '_')
 
@@ -263,8 +294,9 @@ export default function TRPGScenarioPage({
                     role="tab"
                     aria-selected={activeTab === tab.id}
                     onClick={() => setActiveTab(tab.id)}
+                    disabled={isEditing && !tab.editable}
                     className={cn(
-                      'px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap',
+                      'px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap disabled:opacity-40',
                       activeTab === tab.id
                         ? 'border-blue-600 text-blue-600 dark:text-blue-400'
                         : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
@@ -279,16 +311,49 @@ export default function TRPGScenarioPage({
               </nav>
             </div>
 
-            {activeTab === 'overview' && <OverviewSection scenario={scenario} />}
-            {activeTab === 'truth' && <TruthSection scenario={scenario} />}
-            {activeTab === 'npcs' && <NPCSection scenario={scenario} />}
-            {activeTab === 'clues' && <CluesSection scenario={scenario} />}
-            {activeTab === 'scenes' && <ScenesSection scenario={scenario} />}
-            {activeTab === 'endings' && <EndingsSection scenario={scenario} />}
-            {activeTab === 'validation' && <ValidationSection scenario={scenario} />}
-            {activeTab === 'assistant' && <GMAssistantPanel scenario={scenario} />}
+            {currentTab.editable && !isGenerating && (
+              <div
+                className={cn(
+                  'mb-4 flex flex-wrap items-center justify-end gap-2',
+                  isEditing && 'sticky top-0 z-20 -mx-4 bg-gray-50/95 px-4 py-2 backdrop-blur dark:bg-gray-900/95'
+                )}
+              >
+                {isEditing ? (
+                  <>
+                    <span className="mr-auto text-sm text-amber-700 dark:text-amber-300">
+                      編集中です。タブを切り替えても編集内容は保持されます。
+                    </span>
+                    <Button size="sm" variant="secondary" onClick={cancelEditing}>
+                      キャンセル
+                    </Button>
+                    <Button size="sm" onClick={saveEdits}>
+                      保存
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="secondary" disabled={busy} onClick={startEditing}>
+                    編集
+                  </Button>
+                )}
+              </div>
+            )}
 
-            {currentTab.section && (
+            {isEditing && currentTab.editable ? (
+              <ScenarioEditor tab={activeTab as EditableTab} draft={draft} onChange={setDraft} />
+            ) : (
+              <>
+                {activeTab === 'overview' && <OverviewSection scenario={scenario} />}
+                {activeTab === 'truth' && <TruthSection scenario={scenario} />}
+                {activeTab === 'npcs' && <NPCSection scenario={scenario} />}
+                {activeTab === 'clues' && <CluesSection scenario={scenario} />}
+                {activeTab === 'scenes' && <ScenesSection scenario={scenario} />}
+                {activeTab === 'endings' && <EndingsSection scenario={scenario} />}
+                {activeTab === 'validation' && <ValidationSection scenario={scenario} />}
+                {activeTab === 'assistant' && <GMAssistantPanel scenario={scenario} />}
+              </>
+            )}
+
+            {currentTab.section && !isEditing && (
               <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
                 <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   {SECTION_LABELS[currentTab.section]}を再生成
@@ -320,4 +385,11 @@ export default function TRPGScenarioPage({
       </div>
     </div>
   )
+}
+
+// JSON経由で複製したときに日付を Date に戻す
+function reviveDate(key: string, value: unknown) {
+  return (key === 'createdAt' || key === 'updatedAt' || key === 'checkedAt') && typeof value === 'string'
+    ? new Date(value)
+    : value
 }
