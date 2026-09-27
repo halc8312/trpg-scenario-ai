@@ -172,27 +172,36 @@ export default function TRPGScenarioPage({
   }, [persist, addToast, onStream, clearStream, recordUsage])
 
   useEffect(() => {
-    let loaded = TRPGScenarioService.get(params.id)
-    if (!loaded) {
-      setNotFound(true)
-      return
-    }
+    let cancelled = false
+    TRPGScenarioService.init()
+      .then(() => {
+        if (cancelled) return
+        let loaded = TRPGScenarioService.get(params.id)
+        if (!loaded) {
+          setNotFound(true)
+          return
+        }
 
-    // ページ遷移などで中断された生成はエラーとして扱う
-    if (loaded.status === 'generating' && !autostartHandled.current) {
-      loaded = TRPGScenarioService.update(params.id, {
-        status: 'error',
-        lastError: '生成が中断されました。もう一度生成してください。'
-      }) ?? loaded
-    }
-    setScenario(loaded)
+        // ページ遷移などで中断された生成はエラーとして扱う（続きから再開できる）
+        if (loaded.status === 'generating' && !autostartHandled.current) {
+          loaded = TRPGScenarioService.update(params.id, {
+            status: 'error',
+            lastError: '生成が中断されました。'
+          }) ?? loaded
+        }
+        setScenario(loaded)
 
-    if (searchParams.autostart && !autostartHandled.current && loaded.status === 'draft') {
-      autostartHandled.current = true
-      router.replace(`/scenarios/${params.id}`)
-      runGeneration(loaded)
+        if (searchParams.autostart && !autostartHandled.current && loaded.status === 'draft') {
+          autostartHandled.current = true
+          router.replace(`/scenarios/${params.id}`)
+          runGeneration(loaded)
+        }
+      })
+      .catch(error => !cancelled && addToast(`シナリオを読み込めませんでした: ${error.message}`, 'error'))
+    return () => {
+      cancelled = true
     }
-  }, [params.id, searchParams.autostart, router, runGeneration])
+  }, [params.id, searchParams.autostart, router, runGeneration, addToast])
 
   const handleRegenerate = async (section: ScenarioSection) => {
     if (!scenario) return

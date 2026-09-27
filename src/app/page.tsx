@@ -6,7 +6,9 @@ import Header from '@/components/layout/Header'
 import Button from '@/components/ui/Button'
 import ScenarioCard from '@/components/scenario/ScenarioCard'
 import CreateScenarioModal from '@/components/scenario/CreateScenarioModal'
+import BackupModal from '@/components/settings/BackupModal'
 import { TRPGScenarioService } from '@/lib/services/scenario-service'
+import { isBackupFile, restoreBackup } from '@/lib/services/backup-service'
 import { ScenarioAISettings, ScenarioRequest, TRPGScenario } from '@/lib/types'
 import { loadFromFile } from '@/lib/utils'
 import { useToast } from '@/lib/toast'
@@ -17,6 +19,7 @@ export default function TRPGScenariosPage() {
   const [scenarios, setScenarios] = useState<TRPGScenario[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showBackupModal, setShowBackupModal] = useState(false)
 
   const loadScenarios = () => {
     setScenarios(TRPGScenarioService.getAll())
@@ -24,8 +27,13 @@ export default function TRPGScenariosPage() {
   }
 
   useEffect(() => {
-    loadScenarios()
-  }, [])
+    TRPGScenarioService.init()
+      .then(loadScenarios)
+      .catch(error => {
+        setIsLoading(false)
+        addToast(`シナリオを読み込めませんでした: ${error.message}`, 'error')
+      })
+  }, [addToast])
 
   const handleCreate = (request: ScenarioRequest, aiSettings: ScenarioAISettings) => {
     const scenario = TRPGScenarioService.create(request, aiSettings)
@@ -36,8 +44,13 @@ export default function TRPGScenariosPage() {
   const handleImport = async () => {
     try {
       const data = await loadFromFile()
-      const scenario = TRPGScenarioService.import(data)
-      addToast(`「${scenario.overview?.title ?? 'シナリオ'}」を読み込みました`, 'success')
+      if (isBackupFile(data)) {
+        const result = restoreBackup(data)
+        addToast(`バックアップから復元しました（追加 ${result.added}件・更新 ${result.updated}件）`, 'success')
+      } else {
+        const scenario = TRPGScenarioService.import(data)
+        addToast(`「${scenario.overview?.title ?? 'シナリオ'}」を読み込みました`, 'success')
+      }
       loadScenarios()
     } catch (error: any) {
       if (error?.message !== 'No file selected') {
@@ -54,6 +67,9 @@ export default function TRPGScenariosPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">TRPGシナリオ</h1>
             <div className="flex gap-2 sm:gap-3">
+              <Button variant="secondary" size="sm" onClick={() => setShowBackupModal(true)}>
+                バックアップ
+              </Button>
               <Button variant="secondary" size="sm" onClick={handleImport}>
                 JSONを読み込む
               </Button>
@@ -97,6 +113,8 @@ export default function TRPGScenariosPage() {
             ))}
           </div>
         )}
+
+        <BackupModal isOpen={showBackupModal} onClose={() => setShowBackupModal(false)} onRestored={loadScenarios} />
 
         <CreateScenarioModal
           isOpen={showCreateModal}

@@ -1,6 +1,7 @@
 'use client'
 
-import { createContext, ReactNode, useCallback, useContext, useState } from 'react'
+import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react'
+import { STORAGE_ERROR_EVENT } from '@/lib/services/scenario-service'
 import { cn } from '@/lib/utils'
 
 type ToastType = 'success' | 'error' | 'info'
@@ -31,6 +32,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts(prev => [...prev, { id, message, type }])
     setTimeout(() => removeToast(id), 5000)
   }, [removeToast])
+
+  // 保存に失敗したら知らせる（容量不足など）
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail
+      addToast(`シナリオを保存できませんでした（${detail}）。容量不足の可能性があります。バックアップを取ってください。`, 'error')
+    }
+    window.addEventListener(STORAGE_ERROR_EVENT, handler)
+    return () => window.removeEventListener(STORAGE_ERROR_EVENT, handler)
+  }, [addToast])
 
   return (
     <ToastContext.Provider value={{ addToast }}>

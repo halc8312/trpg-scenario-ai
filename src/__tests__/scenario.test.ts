@@ -2,7 +2,9 @@ import { extractJSON } from '@/lib/json-extract'
 import { ScenarioValidator, ValidatableScenario } from '@/lib/services/scenario-validator'
 import { mergeRepairClues, normalizeNPCs, normalizePregens, normalizeScenes, normalizeTruth } from '@/lib/services/scenario-normalizer'
 import { ScenarioExporter } from '@/lib/services/scenario-exporter'
-import { TRPGScenarioService } from '@/lib/services/scenario-service'
+import 'fake-indexeddb/auto'
+import { IDBFactory } from 'fake-indexeddb'
+import { TRPGScenarioService, resetScenarioServiceForTests } from '@/lib/services/scenario-service'
 import { TRPGScenarioFlowExecutor, contextToScenarioPatch } from '@/lib/services/scenario-flow-executor'
 import { FlowEngine } from '@/lib/flow/flow-engine'
 import { trpgScenarioFlow } from '@/data/scenario-flow'
@@ -192,7 +194,12 @@ describe('ScenarioExporter', () => {
 })
 
 describe('TRPGScenarioService', () => {
-  beforeEach(() => localStorage.clear())
+  beforeEach(async () => {
+    globalThis.indexedDB = new IDBFactory()
+    localStorage.clear()
+    resetScenarioServiceForTests()
+    await TRPGScenarioService.init()
+  })
 
   it('creates, updates, duplicates and deletes scenarios', () => {
     const created = TRPGScenarioService.create(request)

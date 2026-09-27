@@ -37,11 +37,20 @@ export function saveToFile(filename: string, data: unknown): void {
 
 export function loadFromFile(): Promise<unknown> {
   return new Promise((resolve, reject) => {
+    // 前回キャンセルされて残った入力欄を片付ける
+    document.querySelectorAll('input[data-file-loader]').forEach(el => el.remove())
+
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = '.json,application/json'
-    input.onchange = async () => {
+    input.style.display = 'none'
+    input.dataset.fileLoader = 'true'
+    // ブラウザによってはページに追加していないと選択結果が通知されない
+    document.body.appendChild(input)
+
+    input.addEventListener('change', async () => {
       const file = input.files?.[0]
+      input.remove()
       if (!file) {
         reject(new Error('No file selected'))
         return
@@ -51,7 +60,7 @@ export function loadFromFile(): Promise<unknown> {
       } catch {
         reject(new Error('JSONファイルを読み込めませんでした'))
       }
-    }
+    })
     input.click()
   })
 }

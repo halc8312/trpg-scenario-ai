@@ -31,7 +31,7 @@ export default function PrintPage({
   const mode: PrintMode = isPrintMode(searchParams.mode) ? searchParams.mode : 'gm'
 
   useEffect(() => {
-    setScenario(TRPGScenarioService.get(params.id))
+    TRPGScenarioService.init().then(() => setScenario(TRPGScenarioService.get(params.id)))
   }, [params.id])
 
   if (scenario === undefined) return null

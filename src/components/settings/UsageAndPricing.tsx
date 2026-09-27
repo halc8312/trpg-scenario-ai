@@ -30,18 +30,25 @@ export default function UsageAndPricing({ isOpen, registerSave }: { isOpen: bool
 
   useEffect(() => {
     if (!isOpen) return
-    const loadedPrices = loadModelPrices()
-    const rate = loadJpyRate()
-    const usage = mergeUsage(TRPGScenarioService.getAll().map(s => s.usage))
-    const summary = summarizeUsage(usage, loadedPrices)
-    setPrices(loadedPrices)
-    setJpyRate(rate ? String(rate) : '')
-    setUsedModels(Object.values(usage.byModel).map(u => u.model))
-    setTotalText(
-      summary.calls > 0
-        ? `${summary.calls}回・入力 ${formatTokens(summary.inputTokens)} / 出力 ${formatTokens(summary.outputTokens)} トークン・概算 ${formatCost(summary.costUsd, rate)}${summary.incomplete ? '（料金未設定のモデルを除く）' : ''}`
-        : 'まだAIを使っていません'
-    )
+    let cancelled = false
+    TRPGScenarioService.init().then(() => {
+      if (cancelled) return
+      const loadedPrices = loadModelPrices()
+      const rate = loadJpyRate()
+      const usage = mergeUsage(TRPGScenarioService.getAll().map(s => s.usage))
+      const summary = summarizeUsage(usage, loadedPrices)
+      setPrices(loadedPrices)
+      setJpyRate(rate ? String(rate) : '')
+      setUsedModels(Object.values(usage.byModel).map(u => u.model))
+      setTotalText(
+        summary.calls > 0
+          ? `${summary.calls}回・入力 ${formatTokens(summary.inputTokens)} / 出力 ${formatTokens(summary.outputTokens)} トークン・概算 ${formatCost(summary.costUsd, rate)}${summary.incomplete ? '（料金未設定のモデルを除く）' : ''}`
+          : 'まだAIを使っていません'
+      )
+    })
+    return () => {
+      cancelled = true
+    }
   }, [isOpen])
 
   useEffect(() => {

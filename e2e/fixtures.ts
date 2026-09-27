@@ -153,3 +153,22 @@ export async function createScenario(page: Page) {
   await page.getByRole('button', { name: '作成して生成開始' }).click()
   await page.getByText('シナリオが完成しました').waitFor({ timeout: 30_000 })
 }
+
+/**
+ * アプリが開いたファイル選択に、ファイルを選んだことにする。
+ * Playwright の setInputFiles は、このリポジトリの開発環境（Playwrightとブラウザの版が異なる）で
+ * change イベントが発生しないことがあるため、DataTransfer で直接設定する。
+ */
+export async function selectFile(page: Page, content: string, name = 'backup.json') {
+  await page.locator('input[data-file-loader]').waitFor({ state: 'attached' })
+  await page.evaluate(
+    ({ content, name }) => {
+      const input = document.querySelector<HTMLInputElement>('input[data-file-loader]')!
+      const transfer = new DataTransfer()
+      transfer.items.add(new File([content], name, { type: 'application/json' }))
+      input.files = transfer.files
+      input.dispatchEvent(new Event('change'))
+    },
+    { content, name }
+  )
+}
