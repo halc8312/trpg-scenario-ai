@@ -21,6 +21,8 @@ export interface ScenarioRequest {
   tone: string
   mustInclude?: string
   avoid?: string
+  // プレイヤー人数分のサンプルキャラクターも作るか
+  includePregens?: boolean
 }
 
 export interface ScenarioAISettings {
@@ -139,6 +141,20 @@ export interface ScenarioScene {
   encounter?: Encounter
 }
 
+// 配布用のサンプルキャラクター（PC）
+export interface ScenarioPregen {
+  id: string
+  name: string
+  concept: string
+  background: string
+  hook: string
+  personalGoal: string
+  stats: string
+  skills: string[]
+  equipment: string[]
+  roleplayTips: string
+}
+
 export interface ScenarioEnding {
   id: string
   title: string
@@ -209,6 +225,7 @@ export interface TRPGScenario {
   clues: ScenarioClue[]
   scenes: ScenarioScene[]
   endings: ScenarioEnding[]
+  pregens?: ScenarioPregen[]
   gmGuide?: ScenarioGMGuide
   validation?: ScenarioValidationReport
   review?: ScenarioContentReview
@@ -220,7 +237,7 @@ export interface TRPGScenario {
 }
 
 // 個別に再生成できるセクション
-export type ScenarioSection = 'concept' | 'npcs' | 'locationsAndClues' | 'scenes' | 'endings'
+export type ScenarioSection = 'concept' | 'npcs' | 'locationsAndClues' | 'scenes' | 'endings' | 'pregens'
 
 export interface GMChatMessage {
   role: 'user' | 'assistant'

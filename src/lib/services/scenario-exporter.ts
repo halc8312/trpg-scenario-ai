@@ -52,6 +52,21 @@ export class ScenarioExporter {
     if (scenario.overview?.playerSynopsis) push('### あらすじ', '', scenario.overview.playerSynopsis, '')
     if (scenario.overview?.hook) push('### 導入', '', scenario.overview.hook, '')
 
+    if (scenario.pregens?.length) {
+      push('### サンプルキャラクター', '')
+      for (const pc of scenario.pregens) {
+        push(`#### ${pc.name}${pc.concept ? `（${pc.concept}）` : ''}`, '')
+        if (pc.background) push(pc.background, '')
+        if (pc.hook) push(`- **事件に関わる理由:** ${pc.hook}`)
+        if (pc.personalGoal) push(`- **個人的な目的:** ${pc.personalGoal}`)
+        if (pc.stats) push(`- **データ:** ${pc.stats}`)
+        if (pc.skills.length) push(`- **技能:** ${pc.skills.join('、')}`)
+        if (pc.equipment.length) push(`- **所持品:** ${pc.equipment.join('、')}`)
+        if (pc.roleplayTips) push(`- **演じ方のヒント:** ${pc.roleplayTips}`)
+        push('')
+      }
+    }
+
     push('---', '', `## ${gm}向け情報（ここから先はネタバレを含みます）`, '')
 
     if (scenario.truth) {

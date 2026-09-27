@@ -13,6 +13,7 @@ import {
   EndingsSection,
   NPCSection,
   OverviewSection,
+  PregenSection,
   ScenesSection,
   TruthSection,
   ValidationSection
@@ -29,10 +30,11 @@ import { cn, saveTextToFile, saveToFile } from '@/lib/utils'
 import { useToast } from '@/lib/toast'
 import { AI_PROVIDERS } from '@/lib/ai/providers'
 
-type TabId = 'overview' | 'truth' | 'npcs' | 'clues' | 'scenes' | 'endings' | 'validation' | 'assistant'
+type TabId = 'overview' | 'pregens' | 'truth' | 'npcs' | 'clues' | 'scenes' | 'endings' | 'validation' | 'assistant'
 
 const TABS: { id: TabId; label: string; section?: ScenarioSection; editable?: boolean }[] = [
   { id: 'overview', label: '概要', section: 'concept', editable: true },
+  { id: 'pregens', label: 'PC', section: 'pregens', editable: true },
   { id: 'truth', label: '真相', section: 'concept', editable: true },
   { id: 'npcs', label: 'NPC', section: 'npcs', editable: true },
   { id: 'clues', label: '場所・手がかり', section: 'locationsAndClues', editable: true },
@@ -47,7 +49,8 @@ const SECTION_LABELS: Record<ScenarioSection, string> = {
   npcs: 'NPC',
   locationsAndClues: '場所と手がかり',
   scenes: 'シーン構成',
-  endings: 'エンディングとガイド'
+  endings: 'エンディングとガイド',
+  pregens: 'サンプルキャラクター'
 }
 
 export default function TRPGScenarioPage({
@@ -415,6 +418,9 @@ export default function TRPGScenarioPage({
             ) : (
               <>
                 {activeTab === 'overview' && <OverviewSection scenario={scenario} />}
+                {activeTab === 'pregens' && (
+                  <PregenSection scenario={scenario} onCreate={() => handleRegenerate('pregens')} disabled={busy} />
+                )}
                 {activeTab === 'truth' && <TruthSection scenario={scenario} />}
                 {activeTab === 'npcs' && <NPCSection scenario={scenario} />}
                 {activeTab === 'clues' && <CluesSection scenario={scenario} />}

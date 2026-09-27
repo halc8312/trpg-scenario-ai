@@ -11,6 +11,7 @@ export interface GameSystemPreset {
   difficultyExamples: string[]
   commonSkills: string[]
   npcStatFormat: string
+  pcStatFormat: string
   enemyStatFormat: string
   rewardGuidelines: string
   defaultGenres: string[]
@@ -33,6 +34,7 @@ export const GAME_SYSTEMS: Record<TRPGSystemId, GameSystemPreset> = {
       'コンピューター', '運転', '追跡', 'ナビゲート', '回避', '近接戦闘', '射撃'
     ],
     npcStatFormat: 'STR / CON / SIZ / DEX / APP / INT / POW / EDU、耐久力、主要技能3〜5個（技能名 値%）',
+    pcStatFormat: '職業、年齢、STR / CON / SIZ / DEX / APP / INT / POW / EDU、耐久力 / MP / 正気度 / 幸運、ダメージ・ボーナス',
     enemyStatFormat: 'STR / CON / SIZ / DEX / POW、耐久力、装甲、攻撃（技能値% / ダメージ）、正気度喪失、特殊能力',
     rewardGuidelines: '正気度の回復（1D6〜1D10など）、クトゥルフ神話技能の獲得、関係者からの謝礼や情報',
     defaultGenres: ['ホラー', '現代ミステリー', '1920年代', 'クローズドサークル'],
@@ -53,6 +55,7 @@ export const GAME_SYSTEMS: Record<TRPGSystemId, GameSystemPreset> = {
       '手先の早業', '魔法学', '歴史', '宗教', '自然', '動物使い', '医術', '生存'
     ],
     npcStatFormat: 'AC、hp、移動速度、能力値（筋/敏/耐/知/判/魅）、主要技能、脅威度（CR）',
+    pcStatFormat: '種族、クラスとレベル、背景、能力値（筋/敏/耐/知/判/魅）、AC、hp、習熟ボーナス、主な攻撃・呪文',
     enemyStatFormat: 'AC、hp、移動速度、能力値、攻撃（命中ボーナス / ダメージ）、特殊能力、脅威度（CR）',
     rewardGuidelines: '経験点（遭遇の脅威度に基づく）またはマイルストーン成長、金貨、魔法のアイテム',
     defaultGenres: ['ハイファンタジー', 'ダンジョン探索', '冒険', '政治陰謀'],
@@ -73,6 +76,7 @@ export const GAME_SYSTEMS: Record<TRPGSystemId, GameSystemPreset> = {
       '隠密判定', '解除判定', '文献判定', '交渉（生命抵抗・精神抵抗）', '先制判定'
     ],
     npcStatFormat: 'レベル、主要技能（例: ファイター4 / セージ2）、生命抵抗力、精神抵抗力、HP、MP',
+    pcStatFormat: '種族、生まれ、技能とレベル（例: ファイター2 / スカウト1）、能力値（器用度〜精神力）、HP / MP、生命抵抗力 / 精神抵抗力、戦闘特技',
     enemyStatFormat: 'レベル、知名度/弱点値、命中力、打撃点、回避力、防護点、HP、MP、特殊能力、戦利品',
     rewardGuidelines: '経験点（基本 + 倒した魔物のレベル合計×10）、報酬（ガメル）、名誉点、剥ぎ取りによる戦利品',
     defaultGenres: ['冒険者の依頼', '遺跡探索', '蛮族との戦い', 'ファンタジー'],
@@ -90,6 +94,7 @@ export const GAME_SYSTEMS: Record<TRPGSystemId, GameSystemPreset> = {
     difficultyExamples: ['知覚系・普通', '知識系・難しい', '交渉系・易しい', '運動系・至難'],
     commonSkills: ['知覚', '調査', '知識', '交渉', '威圧', '運動', '隠密', '技術', '医療', '戦闘'],
     npcStatFormat: '強さの目安（弱い / 普通 / 強い / 脅威）、得意なこと、苦手なこと',
+    pcStatFormat: '得意分野、能力の目安（身体・知性・社交・特殊の4項目を5段階）、特技',
     enemyStatFormat: '強さの目安、攻撃手段、防御の特徴、弱点、特殊能力',
     rewardGuidelines: '物語上の報酬（情報・人脈・アイテム）とシステムに応じた成長点',
     defaultGenres: ['ファンタジー', 'SF', '現代異能', 'ミステリー', 'ホラー'],

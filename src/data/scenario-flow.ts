@@ -48,6 +48,22 @@ export const trpgScenarioFlow: Flow = {
       input: ['request', 'truth', 'scenes'],
       output: ['endings', 'gmGuide'],
       action: 'PLの行動で分岐するエンディングと、時間配分・救済策などの運営ガイドを作成',
+      nextSteps: ['create-pregens']
+    },
+    {
+      id: 'create-pregens',
+      name: 'サンプルキャラクター',
+      type: 'write',
+      input: ['request', 'overview', 'truth', 'npcs'],
+      output: ['pregens'],
+      action: 'プレイヤー人数分の配布用キャラクターを、導入への関わりとデータ付きで作成',
+      conditions: [
+        {
+          field: 'request.includePregens',
+          operator: 'equals',
+          value: true
+        }
+      ],
       nextSteps: ['validate-structure']
     },
     {

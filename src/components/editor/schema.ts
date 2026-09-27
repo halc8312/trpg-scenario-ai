@@ -185,6 +185,18 @@ export const sceneFields: FieldDef[] = [
   }
 ]
 
+export const pregenFields: FieldDef[] = [
+  { key: 'name', label: '名前', type: 'text' },
+  { key: 'concept', label: '職業・クラス', type: 'text' },
+  { key: 'background', label: '経歴', type: 'textarea' },
+  { key: 'hook', label: '事件に関わる理由', type: 'textarea' },
+  { key: 'personalGoal', label: '個人的な目的', type: 'textarea' },
+  { key: 'stats', label: 'データ', type: 'textarea' },
+  { key: 'skills', label: '技能', type: 'stringList', hint: '1行に1つ' },
+  { key: 'equipment', label: '所持品', type: 'stringList', hint: '1行に1つ' },
+  { key: 'roleplayTips', label: '演じ方のヒント', type: 'textarea' }
+]
+
 export const endingFields: FieldDef[] = [
   { key: 'title', label: 'エンディング名', type: 'text' },
   { key: 'condition', label: '到達条件', type: 'textarea' },

@@ -1,6 +1,6 @@
 import { extractJSON } from '@/lib/json-extract'
 import { ScenarioValidator, ValidatableScenario } from '@/lib/services/scenario-validator'
-import { mergeRepairClues, normalizeNPCs, normalizeScenes, normalizeTruth } from '@/lib/services/scenario-normalizer'
+import { mergeRepairClues, normalizeNPCs, normalizePregens, normalizeScenes, normalizeTruth } from '@/lib/services/scenario-normalizer'
 import { ScenarioExporter } from '@/lib/services/scenario-exporter'
 import { TRPGScenarioService } from '@/lib/services/scenario-service'
 import { TRPGScenarioFlowExecutor, contextToScenarioPatch } from '@/lib/services/scenario-flow-executor'
@@ -103,6 +103,12 @@ describe('normalizer', () => {
     expect(s.clueIds).toEqual(['clue-1'])
   })
 
+  it('normalizes pregens and drops unnamed ones', () => {
+    const pregens = normalizePregens([{ name: '探偵', skills: '目星 60%', equipment: ['懐中電灯'] }, { concept: '名無し' }])
+    expect(pregens).toHaveLength(1)
+    expect(pregens[0]).toMatchObject({ id: 'pc-1', skills: ['目星 60%'], equipment: ['懐中電灯'] })
+  })
+
   it('merges repair clues and registers them in the target scene', () => {
     const scenes = [scene('scene-1'), scene('scene-2')]
     const result = mergeRepairClues([clue('clue-1', 'rev-1')], scenes, [
@@ -175,7 +181,9 @@ describe('ScenarioExporter', () => {
       createdAt: new Date(),
       updatedAt: new Date()
     }
+    scenario.pregens = normalizePregens([{ name: '古賀 明', concept: '新聞記者', skills: ['図書館 70%'] }])
     const md = ScenarioExporter.toMarkdown(scenario)
+    expect(md.indexOf('#### 古賀 明（新聞記者）')).toBeLessThan(md.indexOf('## KP向け情報'))
     expect(md.startsWith('# 霧隠れ村')).toBe(true)
     expect(md.indexOf('## PL向け情報')).toBeLessThan(md.indexOf('## KP向け情報'))
     expect(md.indexOf('## KP向け情報')).toBeLessThan(md.indexOf('神主'))
@@ -286,5 +294,26 @@ describe('TRPG scenario flow', () => {
     expect(context.review).toBeUndefined()
     expect(context.endings).toHaveLength(1)
     expect(logs.some(l => l.includes('内容チェックに失敗しました'))).toBe(true)
+  })
+
+  it('creates pregens only when requested', async () => {
+    const complete = aiClient.complete as jest.Mock
+    complete.mockReset()
+    complete
+      .mockResolvedValueOnce(reply({ overview: { title: 'T' }, truth: { keyRevelations: [{ id: 'rev-1', fact: 'F', importance: 'optional' }] } }))
+      .mockResolvedValueOnce(reply({ npcs: [] }))
+      .mockResolvedValueOnce(reply({ locations: [], clues: [] }))
+      .mockResolvedValueOnce(reply({ scenes: [{ id: 'scene-1', title: 'S', type: 'climax' }] }))
+      .mockResolvedValueOnce(reply({ endings: [{ title: 'E' }] }))
+      .mockResolvedValueOnce(reply({ pregens: [{ name: 'PC1' }, { name: 'PC2' }, { name: 'PC3' }] }))
+      .mockResolvedValueOnce(reply({ issues: [] }))
+
+    const executor = new TRPGScenarioFlowExecutor({ provider: 'openai', model: 'gpt-6-sol', temperature: 0.8, maxTokens: 1000 })
+    const engine = new FlowEngine(trpgScenarioFlow, executor)
+    executor.setFlowEngine(engine)
+    const context = await engine.execute({ request: { ...request, includePregens: true } })
+
+    expect(context.pregens.map((p: { name: string }) => p.name)).toEqual(['PC1', 'PC2', 'PC3'])
+    expect(complete.mock.calls[5][0].messages[1].content).toContain('3人分作成してください')
   })
 })

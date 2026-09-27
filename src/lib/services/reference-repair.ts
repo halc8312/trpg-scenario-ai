@@ -19,7 +19,8 @@ export const SECTION_ENTITY_KINDS: Record<ScenarioSection, EntityKind[]> = {
   npcs: ['npc'],
   locationsAndClues: ['location', 'clue'],
   scenes: ['scene'],
-  endings: []
+  endings: [],
+  pregens: []
 }
 
 function labelsOf(scenario: Pick<TRPGScenario, 'truth' | 'npcs' | 'locations' | 'clues' | 'scenes'>, kind: EntityKind): Labeled[] {

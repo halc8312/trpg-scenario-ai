@@ -10,12 +10,13 @@ import {
   locationFields,
   npcFields,
   overviewFields,
+  pregenFields,
   sceneFields,
   truthFields
 } from './schema'
 import { TRPGScenario } from '@/lib/types'
 
-export type EditableTab = 'overview' | 'truth' | 'npcs' | 'clues' | 'scenes' | 'endings'
+export type EditableTab = 'overview' | 'pregens' | 'truth' | 'npcs' | 'clues' | 'scenes' | 'endings'
 
 interface ScenarioEditorProps {
   tab: EditableTab
@@ -58,6 +59,21 @@ export default function ScenarioEditor({ tab, draft, onChange }: ScenarioEditorP
             onChange={overview => set({ overview: overview as TRPGScenario['overview'] })}
           />
         </div>
+      )
+    case 'pregens':
+      return (
+        <ListEditor
+          items={draft.pregens ?? []}
+          fields={pregenFields}
+          refs={refs}
+          itemLabel="name"
+          idPrefix="pc"
+          addLabel="キャラクターを追加"
+          newItem={() => ({
+            name: '', concept: '', background: '', hook: '', personalGoal: '', stats: '', skills: [], equipment: [], roleplayTips: ''
+          })}
+          onChange={pregens => set({ pregens: pregens as TRPGScenario['pregens'] })}
+        />
       )
     case 'truth':
       return (

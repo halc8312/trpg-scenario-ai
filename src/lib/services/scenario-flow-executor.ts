@@ -17,6 +17,7 @@ import {
   buildEndingsPrompt,
   buildLocationsAndCluesPrompt,
   buildNPCPrompt,
+  buildPregensPrompt,
   buildScenesPrompt,
   buildSystemPrompt
 } from './scenario-prompts'
@@ -29,6 +30,7 @@ import {
   normalizeLocations,
   normalizeNPCs,
   normalizeOverview,
+  normalizePregens,
   normalizeScenes,
   normalizeTruth
 } from './scenario-normalizer'
@@ -37,7 +39,7 @@ import { ReferenceRepairReport, existingIdHint, repairAfterRegeneration } from '
 
 // フローのコンテキストのうち、シナリオとして保存するキー
 const SCENARIO_CONTEXT_KEYS = [
-  'overview', 'truth', 'npcs', 'locations', 'clues', 'scenes', 'endings', 'gmGuide', 'validation', 'review'
+  'overview', 'truth', 'npcs', 'locations', 'clues', 'scenes', 'endings', 'pregens', 'gmGuide', 'validation', 'review'
 ] as const
 
 export function contextToScenarioPatch(context: FlowContext): Partial<TRPGScenario> {
@@ -58,6 +60,7 @@ export function scenarioToContext(scenario: TRPGScenario): FlowContext {
     clues: scenario.clues,
     scenes: scenario.scenes,
     endings: scenario.endings,
+    pregens: scenario.pregens,
     gmGuide: scenario.gmGuide,
     validation: scenario.validation
   }
@@ -99,6 +102,8 @@ export class TRPGScenarioFlowExecutor implements FlowExecutor {
         return this.structureScenes(promptContext)
       case 'design-endings':
         return this.designEndings(promptContext)
+      case 'create-pregens':
+        return this.createPregens(promptContext)
       case 'validate-structure':
       case 'finalize':
         return this.validate(context)
@@ -144,6 +149,9 @@ export class TRPGScenarioFlowExecutor implements FlowExecutor {
         break
       case 'endings':
         result = await this.designEndings(promptContext)
+        break
+      case 'pregens':
+        result = await this.createPregens(promptContext)
         break
     }
 
@@ -244,6 +252,14 @@ export class TRPGScenarioFlowExecutor implements FlowExecutor {
     const gmGuide = normalizeGMGuide(data.gmGuide)
     this.log(`${endings.length}種類のエンディングを作成しました`)
     return { endings, gmGuide }
+  }
+
+  private async createPregens(ctx: ScenarioPromptContext): Promise<FlowContext> {
+    this.log('サンプルキャラクターを作成しています...')
+    const data = await this.callJSON(ctx.request, buildPregensPrompt(ctx), this.aiSettings.temperature)
+    const pregens = normalizePregens(data.pregens)
+    this.log(`${pregens.length}人のサンプルキャラクターを作成しました`)
+    return { pregens }
   }
 
   private validate(context: FlowContext): FlowContext {

@@ -10,6 +10,7 @@ import {
   ScenarioLocation,
   ScenarioNPC,
   ScenarioOverview,
+  ScenarioPregen,
   ScenarioScene,
   ScenarioTruth,
   SceneType,
@@ -208,6 +209,24 @@ export function normalizeEndings(raw: unknown): ScenarioEnding[] {
     }))
     .filter(e => e.title)
   return assignIds(endings, 'end')
+}
+
+export function normalizePregens(raw: unknown): ScenarioPregen[] {
+  const pregens = arr(raw)
+    .map((p: any) => ({
+      id: str(p?.id),
+      name: str(p?.name),
+      concept: str(p?.concept),
+      background: str(p?.background),
+      hook: str(p?.hook),
+      personalGoal: str(p?.personalGoal),
+      stats: str(p?.stats),
+      skills: strArr(p?.skills),
+      equipment: strArr(p?.equipment),
+      roleplayTips: str(p?.roleplayTips)
+    }))
+    .filter(p => p.name)
+  return assignIds(pregens, 'pc')
 }
 
 export function normalizeGMGuide(raw: any): ScenarioGMGuide {

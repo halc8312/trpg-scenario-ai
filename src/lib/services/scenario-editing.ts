@@ -13,6 +13,7 @@ export function finalizeEdits(draft: TRPGScenario): Partial<TRPGScenario> {
     ...draft,
     overview: draft.overview && { ...draft.overview, recommendedSkills: trimList(draft.overview.recommendedSkills) },
     npcs: draft.npcs.map(n => ({ ...n, dialogueExamples: trimList(n.dialogueExamples) })),
+    pregens: draft.pregens?.map(p => ({ ...p, skills: trimList(p.skills), equipment: trimList(p.equipment) })),
     locations: draft.locations.map(l => ({ ...l, features: trimList(l.features) })),
     clues: draft.clues.map(c => ({
       ...c,
@@ -37,6 +38,7 @@ export function finalizeEdits(draft: TRPGScenario): Partial<TRPGScenario> {
     clues: scenario.clues,
     scenes: scenario.scenes,
     endings: scenario.endings,
+    pregens: scenario.pregens,
     gmGuide: scenario.gmGuide,
     validation: ScenarioValidator.validate(scenario)
   }

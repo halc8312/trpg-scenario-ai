@@ -77,6 +77,63 @@ export function OverviewSection({ scenario }: SectionProps) {
   )
 }
 
+export function PregenSection({ scenario, onCreate, disabled }: SectionProps & { onCreate?: () => void; disabled?: boolean }) {
+  const pregens = scenario.pregens ?? []
+  if (pregens.length === 0) {
+    return (
+      <Card>
+        <div className="text-center py-4">
+          <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+            プレイヤー{scenario.request.playerCount}人分の、すぐに遊べるサンプルキャラクターを作成できます。
+          </p>
+          {onCreate && (
+            <button
+              type="button"
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              onClick={onCreate}
+              disabled={disabled}
+            >
+              サンプルキャラクターを作成
+            </button>
+          )}
+        </div>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {pregens.map(pc => (
+        <Card
+          key={pc.id}
+          title={
+            <div className="flex items-center gap-2">
+              <span>{pc.name}</span>
+              <span className="text-sm font-normal text-gray-500">{pc.concept}</span>
+            </div>
+          }
+        >
+          <Field label="経歴">{pc.background}</Field>
+          <Field label="事件に関わる理由">{pc.hook}</Field>
+          <Field label="個人的な目的">{pc.personalGoal}</Field>
+          <Field label="データ">{pc.stats}</Field>
+          {pc.skills.length > 0 && (
+            <Field label="技能">
+              <div className="flex flex-wrap gap-1.5">
+                {pc.skills.map(skill => (
+                  <Badge key={skill} className="bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">{skill}</Badge>
+                ))}
+              </div>
+            </Field>
+          )}
+          {pc.equipment.length > 0 && <Field label="所持品">{pc.equipment.join('、')}</Field>}
+          <Field label="演じ方のヒント">{pc.roleplayTips}</Field>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
 export function TruthSection({ scenario }: SectionProps) {
   const { truth } = scenario
   const system = getGameSystem(scenario.request.systemId)

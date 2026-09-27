@@ -259,6 +259,51 @@ ${formatInstruction(ctx.instruction)}
 encounter は戦闘がないシーンでは省略してください。`
 }
 
+export function buildPregensPrompt(ctx: ScenarioPromptContext): string {
+  const system = getGameSystem(ctx.request.systemId)
+  return `このシナリオ用に、プレイヤーへ配布するサンプルキャラクター（PC）を${ctx.request.playerCount}人分作成してください。
+
+# 依頼内容
+${formatRequest(ctx.request)}
+
+# 概要と導入（PLに公開される情報）
+${json({ title: ctx.overview?.title, hook: ctx.overview?.hook, recommendedSkills: ctx.overview?.recommendedSkills })}
+
+# 真相の要約（${system.gmTitle}のみが知る。PCの設定にネタバレを書かないこと）
+${json({ summary: ctx.truth?.summary })}
+
+# NPC
+${json((ctx.npcs ?? []).map(n => ({ id: n.id, name: n.name, role: n.role })))}
+${formatInstruction(ctx.instruction)}
+# 設計の要点
+- 全員がそのまま遊べる完成したキャラクターにする。推奨技能を分担し、得意分野が重ならないようにする
+- hook には、そのPCが導入の事件に関わる個人的な理由を書く（NPCとの関係を使ってよい）
+- personalGoal には、シナリオ中に追いかけられる個人的な目的を書く
+- stats は「${system.pcStatFormat}」を${system.name}のルールに沿った妥当な値で書く
+- skills には主要な技能・判定を値つきで5〜8個
+- 真相や黒幕に関するネタバレは書かない
+
+# 出力形式
+\`\`\`json
+{
+  "pregens": [
+    {
+      "id": "pc-1",
+      "name": "名前",
+      "concept": "職業・クラスなど一言で",
+      "background": "経歴",
+      "hook": "事件に関わる理由",
+      "personalGoal": "個人的な目的",
+      "stats": "データ",
+      "skills": ["技能 値"],
+      "equipment": ["所持品"],
+      "roleplayTips": "演じ方のヒント"
+    }
+  ]
+}
+\`\`\``
+}
+
 export function buildEndingsPrompt(ctx: ScenarioPromptContext): string {
   const system = getGameSystem(ctx.request.systemId)
   return `以下のシナリオのエンディングと、${system.gmTitle}向けの運営ガイドを作成してください。

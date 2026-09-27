@@ -68,6 +68,13 @@ export const AI_RESPONSES = {
       { revelationId: 'rev-1', sceneId: 'scene-3', title: '失踪者の名簿', description: '失踪者は全員祭りの前に神主と面会していた', locationId: 'loc-2', discovery: { skill: '図書館', difficulty: 'レギュラー' } }
     ]
   }),
+  pregens: json({
+    pregens: [
+      { id: 'pc-1', name: '古賀 明', concept: '新聞記者', background: '地方紙の記者', hook: '失踪事件を追っている', personalGoal: 'スクープを掴む', stats: 'STR50 INT70', skills: ['図書館 70%', '説得 60%'], equipment: ['手帳'], roleplayTips: '好奇心旺盛に' },
+      { id: 'pc-2', name: '三浦 静', concept: '医師', hook: '佐伯の妹の主治医', skills: ['医学 70%'] },
+      { id: 'pc-3', name: '堂島 剛', concept: '元刑事', hook: '佐伯の旧友', skills: ['目星 70%'] }
+    ]
+  }),
   review: json({
     summary: '全体として筋は通っていますが、細かな食い違いがあります。',
     issues: [
@@ -85,6 +92,7 @@ export function classifyRequest(body: { messages: { role: string; content: strin
   if (system.includes('アシスタント')) return 'gm'
   if (last.includes('手がかりが不足')) return 'repair'
   if (last.includes('内容の整合性をレビュー')) return 'review'
+  if (last.includes('サンプルキャラクター（PC）を')) return 'pregens'
   if (last.includes('概要と真相を設計')) return 'concept'
   if (last.includes('NPCを設計')) return 'npcs'
   if (last.includes('探索場所と手がかりを設計')) return 'clues'
